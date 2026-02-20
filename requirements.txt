@@ -3,8 +3,7 @@ stanza
 ebooklib
 pymupdf
 torch
-transformers
-accelerate
+vllm>=0.8.0
 huggingface_hub
 pandas
 openpyxl

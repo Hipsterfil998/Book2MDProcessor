@@ -8,11 +8,17 @@ from converters.epub2md_LLM import EpubToMarkdownConverter
 
 class ConverterPipeline:
 
-    def __init__(self, input_dir: str, output_dir: str, model_id: str = "google/gemma-3-4b-it", device: str = "cuda"):
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        pdf_model_id: str = "Qwen/Qwen2.5-VL-7B-Instruct",
+        text_model_id: str = "Qwen/Qwen2.5-7B-Instruct",
+    ):
         self.input_dir = input_dir
         self.output_dir = output_dir
-        self.model_id = model_id
-        self.device = device
+        self.pdf_model_id = pdf_model_id
+        self.text_model_id = text_model_id
 
     def run_simple(self) -> None:
         """Convert all PDFs and EPUBs using DocumentProcessor (no LLM)."""
@@ -29,7 +35,7 @@ class ConverterPipeline:
 
     def run_pdf_llm(self) -> None:
         """Convert all PDFs using PDFToMarkdownConverter (LLM)."""
-        converter = PDFToMarkdownConverter(model_id=self.model_id, device=self.device)
+        converter = PDFToMarkdownConverter(model_id=self.pdf_model_id)
 
         for pdf_path in tqdm(glob.glob(f"{self.input_dir}/**/*.pdf", recursive=True), desc="Converting PDFs (LLM)", unit="file"):
             doc_output = Path(self.output_dir) / Path(pdf_path).stem
@@ -38,7 +44,7 @@ class ConverterPipeline:
 
     def run_epub_llm(self) -> None:
         """Convert all EPUBs using EpubToMarkdownConverter (LLM)."""
-        converter = EpubToMarkdownConverter(model_id=self.model_id, device=self.device)
+        converter = EpubToMarkdownConverter(model_id=self.text_model_id)
 
         for epub_path in tqdm(glob.glob(f"{self.input_dir}/**/*.epub", recursive=True), desc="Converting EPUBs (LLM)", unit="file"):
             doc_output = Path(self.output_dir) / (Path(epub_path).stem + ".md")

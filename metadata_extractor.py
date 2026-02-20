@@ -1,13 +1,12 @@
 """
-Bibliographic metadata extractor using Gemma 3 via HuggingFace Transformers.
+Bibliographic metadata extractor using Qwen2.5 via vLLM.
 Processes book text extracts and outputs structured author/title/year data.
 """
 
 import json
-import torch
 import pandas as pd
 from pathlib import Path
-from transformers import pipeline
+from vllm import LLM, SamplingParams
 from huggingface_hub import login
 
 
@@ -45,42 +44,27 @@ class MetadataExtractor:
         hf_token: HuggingFace API token. If None, assumes already logged in.
         max_extract_chars: Max characters to keep per book extract.
         max_new_tokens: Max tokens for model generation.
-        batch_size: Batch size for inference.
     """
 
     def __init__(
         self,
-        model_id: str = "google/gemma-3-4b-it",
+        model_id: str = "Qwen/Qwen2.5-7B-Instruct",
         hf_token: str | None = None,
         max_extract_chars: int = 1500,
         max_new_tokens: int = 128,
-        batch_size: int = 1,
     ):
         self.model_id = model_id
         self.max_extract_chars = max_extract_chars
         self.max_new_tokens = max_new_tokens
-        self.batch_size = batch_size
 
         if hf_token:
             login(token=hf_token)
 
-        self.pipe = self._load_pipeline()
+        self.llm = self._load_model()
 
-    def _load_pipeline(self):
-        """Initialize and configure the text-generation pipeline."""
-        pipe = pipeline(
-            "text-generation",
-            model=self.model_id,
-            dtype=torch.bfloat16,
-            device_map="auto",
-        )
-        # Ensure consistent padding behavior
-        pipe.tokenizer.pad_token = pipe.tokenizer.eos_token
-        pipe.tokenizer.padding_side = "left"
-        pipe.model.generation_config.pad_token_id = pipe.tokenizer.eos_token_id
-        pipe.model.generation_config.max_length = None
-        pipe.model.generation_config.max_new_tokens = None
-        return pipe
+    def _load_model(self) -> LLM:
+        """Initialize the vLLM engine."""
+        return LLM(model=self.model_id, dtype="bfloat16")
 
     def collect_extracts(self, input_dir: str) -> list[tuple[str, str]]:
         """
@@ -118,13 +102,9 @@ class MetadataExtractor:
 
     def _run_inference(self, dataset: list) -> list[str]:
         """Run batched inference and return raw generated strings."""
-        outputs = self.pipe(
-            dataset,
-            batch_size=self.batch_size,
-            max_new_tokens=self.max_new_tokens,
-            do_sample=True,
-        )
-        return [out[0]["generated_text"][-1]["content"] for out in outputs]
+        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
+        outputs = self.llm.chat(dataset, sampling_params=sampling_params)
+        return [out.outputs[0].text for out in outputs]
 
     @staticmethod
     def _parse_output(raw: str, idx: int) -> dict | None:
