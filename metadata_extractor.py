@@ -71,7 +71,7 @@ class MetadataExtractor:
         pipe = pipeline(
             "text-generation",
             model=self.model_id,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map="auto",
         )
         # Ensure consistent padding behavior

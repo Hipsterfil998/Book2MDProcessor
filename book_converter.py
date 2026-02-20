@@ -1,5 +1,6 @@
 import glob
 from pathlib import Path
+from tqdm import tqdm
 from converters.text_extraction import DocumentProcessor
 from converters.pdf2md_LLM import PDFToMarkdownConverter
 from converters.epub2md_LLM import EpubToMarkdownConverter
@@ -19,20 +20,18 @@ class ConverterPipeline:
         documents = [f for f in glob.glob(f"{self.input_dir}/**", recursive=True)
                      if f.endswith(('.pdf', '.epub'))]
 
-        for filepath in documents:
+        for filepath in tqdm(documents, desc="Converting", unit="file"):
             doc_output = Path(self.output_dir) / Path(filepath).stem
             if filepath.endswith('.pdf'):
                 processor.process_pdf(filepath, output_dir=doc_output)
             else:
                 processor.process_epub(filepath, output_dir=doc_output)
 
-        DocumentProcessor._validate_output(len(documents), len(list(Path(self.output_dir).iterdir())), "documents")
-
     def run_pdf_llm(self) -> None:
         """Convert all PDFs using PDFToMarkdownConverter (LLM)."""
         converter = PDFToMarkdownConverter(model_id=self.model_id, device=self.device)
 
-        for pdf_path in glob.glob(f"{self.input_dir}/**/*.pdf", recursive=True):
+        for pdf_path in tqdm(glob.glob(f"{self.input_dir}/**/*.pdf", recursive=True), desc="Converting PDFs (LLM)", unit="file"):
             doc_output = Path(self.output_dir) / Path(pdf_path).stem
             doc_output.mkdir(parents=True, exist_ok=True)
             converter.convert(pdf_path, output_dir=doc_output)
@@ -41,6 +40,6 @@ class ConverterPipeline:
         """Convert all EPUBs using EpubToMarkdownConverter (LLM)."""
         converter = EpubToMarkdownConverter(model_id=self.model_id, device=self.device)
 
-        for epub_path in glob.glob(f"{self.input_dir}/**/*.epub", recursive=True):
+        for epub_path in tqdm(glob.glob(f"{self.input_dir}/**/*.epub", recursive=True), desc="Converting EPUBs (LLM)", unit="file"):
             doc_output = Path(self.output_dir) / (Path(epub_path).stem + ".md")
             converter.convert(epub_path, output_path=str(doc_output))

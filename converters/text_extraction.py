@@ -5,6 +5,7 @@ import fitz
 from ebooklib import epub
 from ebooklib.epub import EpubHtml
 from bs4 import BeautifulSoup, NavigableString, Tag
+from tqdm import tqdm
 
 _CAPTION_RE = re.compile(r"^(figura|figure|fig\.?|tabella|table|tab\.?)\s*\d*", re.I)
 
@@ -36,7 +37,7 @@ class DocumentProcessor:
         doc = fitz.open(pdf_path)
         pages = []
 
-        for page_num, page in enumerate(doc, 1):
+        for page_num, page in tqdm(enumerate(doc, 1), desc=filename, unit="page", total=len(doc)):
             blocks = self._extract_pdf_page_blocks(doc, page, page_num, img_dir, min_img_size)
             pages.append({"page": page_num, "blocks": blocks})
 
@@ -78,6 +79,9 @@ class DocumentProcessor:
             xref = img_info[0]
             try:
                 img = doc.extract_image(xref)
+                if not img.get("image"):
+                    print(f"[warn] p{page_num} xref={xref}: empty image data, skipped")
+                    continue
                 if img["width"] < min_img_size or img["height"] < min_img_size:
                     continue
 
@@ -92,8 +96,8 @@ class DocumentProcessor:
                 (img_dir / img_filename).write_bytes(img["image"])
                 img_blocks.append((y0, f"![{caption or ''}](images/{img_filename})\n"))
 
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[warn] p{page_num} xref={xref}: {e}")
 
         all_blocks = sorted(text_blocks + img_blocks, key=lambda b: b[0])
         return [b[1] for b in all_blocks]
