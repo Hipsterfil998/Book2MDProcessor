@@ -146,6 +146,25 @@ metadata/
 └── metadata.csv              # columns: book, author, title, year, genre
 ```
 
+### Dependency parsing
+
+```python
+from dependency_parsing.dependency_parsing import DependencyParser
+
+parser = DependencyParser(langs=["it", "de"], output_format="conllu")
+parser.run(input_dir="output/", output_dir="parsed/")
+```
+
+Runs full NLP annotation on all `.md` files in the output folder:
+- tokenization, POS tagging, lemmatization, dependency parsing (via Stanza)
+- Markdown is stripped to plain text before parsing
+- Supports Italian (`it`) and German (`de`) simultaneously
+- Output formats: `conllu` (CoNLL-U), `json`, or `both`
+
+Each token in the output carries: `id`, `text`, `lemma`, `upos`, `xpos`, `feats`, `head`, `deprel`.
+
+Stanza models are downloaded automatically on first run (~500 MB per language).
+
 ---
 
 ## Markdown Format
