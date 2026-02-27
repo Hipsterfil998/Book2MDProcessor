@@ -47,5 +47,7 @@ class ConverterPipeline:
         converter = EpubToMarkdownConverter(model_id=self.text_model_id)
 
         for epub_path in tqdm(glob.glob(f"{self.input_dir}/**/*.epub", recursive=True), desc="Converting EPUBs (LLM)", unit="file"):
-            doc_output = Path(self.output_dir) / (Path(epub_path).stem + ".md")
-            converter.convert(epub_path, output_path=str(doc_output))
+            doc_output_dir = Path(self.output_dir) / Path(epub_path).stem
+            doc_output_dir.mkdir(parents=True, exist_ok=True)
+            doc_output_md = doc_output_dir / (Path(epub_path).stem + ".md")
+            converter.convert(epub_path, output_path=str(doc_output_md))
