@@ -2,24 +2,15 @@
 pdf_to_markdown.py — PDF → Markdown converter using Qwen2.5-VL via vLLM.
 """
 
-import base64
 import logging
-import random
-from io import BytesIO
 from pathlib import Path
 import fitz
 from pdf2image import convert_from_path
 from vllm import LLM, SamplingParams
 from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N
+from utils import pil_to_data_url, sample_indices
 
 logger = logging.getLogger(__name__)
-
-
-def _pil_to_data_url(img) -> str:
-    """Encode a PIL image as a base64 PNG data URL for vLLM multimodal input."""
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 class PDFToMarkdownConverter:
@@ -65,7 +56,7 @@ class PDFToMarkdownConverter:
 
         messages = [
             [{"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": _pil_to_data_url(img)}},
+                {"type": "image_url", "image_url": {"url": pil_to_data_url(img)}},
                 {"type": "text", "text": make_prompt(page_images.get(j, []))},
             ]}]
             for j, img in enumerate(pages)
@@ -88,7 +79,7 @@ class PDFToMarkdownConverter:
         # Save sampled page image + markdown pairs for later evaluation
         eval_dir = output_dir / "eval_pages"
         eval_dir.mkdir(exist_ok=True)
-        for j in self._sample_indices(len(pages), self.eval_n):
+        for j in sample_indices(len(pages), self.eval_n):
             pages[j].save(str(eval_dir / f"{j}.png"))
             (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
         logger.info("Eval pages → %s", eval_dir)
@@ -110,23 +101,6 @@ class PDFToMarkdownConverter:
                 page_images[page_idx].append(fname)
         doc.close()
         return page_images
-
-    @staticmethod
-    def _sample_indices(total: int, n: int = 20) -> list[int]:
-        """Stratified sampling across front / body / back of the document."""
-        if total <= n:
-            return list(range(total))
-        front = list(range(0, max(1, total // 10)))
-        back  = list(range(total - max(1, total // 10), total))
-        body  = list(range(len(front), total - len(back)))
-        n_front = max(1, n // 7)
-        n_back  = max(1, n // 7)
-        n_body  = n - n_front - n_back
-        return sorted(
-            random.sample(front, min(n_front, len(front))) +
-            random.sample(body,  min(n_body,  len(body)))  +
-            random.sample(back,  min(n_back,  len(back)))
-        )
 
     @staticmethod
     def _resolve_image_refs(text: str, fnames: list[str]) -> str:

@@ -5,13 +5,12 @@ Reads pre-saved eval_pages/ and eval_chunks/ produced during conversion.
 Scores are saved separately from the generated Markdown files.
 """
 
-import base64
 import json
-from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
 from vllm import LLM, SamplingParams
+from utils import pil_to_data_url
 
 
 _PDF_JUDGE_PROMPT = (
@@ -41,12 +40,6 @@ _EPUB_JUDGE_PROMPT = (
     "- structure: headings, tables, lists match the source structure\n\n"
     'Return ONLY valid JSON: {"text": N, "structure": N}'
 )
-
-
-def _pil_to_data_url(img) -> str:
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 class QualityEvaluator:
@@ -84,7 +77,7 @@ class QualityEvaluator:
 
         messages = [
             [{"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": _pil_to_data_url(Image.open(pf))}},
+                {"type": "image_url", "image_url": {"url": pil_to_data_url(Image.open(pf))}},
                 {"type": "text", "text": _PDF_JUDGE_PROMPT + (pf.with_suffix(".md")).read_text(encoding="utf-8")},
             ]}]
             for pf in page_files
