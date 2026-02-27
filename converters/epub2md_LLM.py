@@ -1,5 +1,6 @@
 """epub_converter.py — EPUB → Markdown via pypandoc + vLLM."""
 
+import random
 from pathlib import Path
 import pypandoc
 from bs4 import BeautifulSoup
@@ -25,9 +26,11 @@ class EpubToMarkdownConverter:
         model_id: str = "Qwen/Qwen2.5-7B-Instruct",
         max_chunk_chars: int = 8_000,
         max_new_tokens: int = 2_048,
+        eval_n: int = 20,
     ):
         self.max_chunk_chars = max_chunk_chars
         self.max_new_tokens = max_new_tokens
+        self.eval_n = eval_n
         self.llm = LLM(model=model_id, dtype="bfloat16")
 
     def _chunk(self, html: str) -> list[str]:
@@ -73,7 +76,8 @@ class EpubToMarkdownConverter:
         return str(soup)
 
     def convert(self, epub_path: str, output_path: str | None = None) -> str:
-        """Convert EPUB to Markdown. Images are saved alongside output_path."""
+        """Convert EPUB to Markdown. Images are saved alongside output_path.
+        Chunks are separated by \\n\\n---\\n\\n; sampled chunks saved to eval_chunks/."""
         output = Path(output_path) if output_path else Path(epub_path).with_suffix(".md")
         images_dir = output.parent / "images"
 
@@ -86,7 +90,33 @@ class EpubToMarkdownConverter:
 
         sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
         outputs = self.llm.chat(messages, sampling_params=sampling_params)
-        markdown = "\n\n".join(out.outputs[0].text for out in outputs)
+        raw_texts = [out.outputs[0].text for out in outputs]
+        markdown = "\n\n---\n\n".join(raw_texts)
 
         output.write_text(markdown, encoding="utf-8")
+
+        # Save sampled HTML chunk + markdown pairs for later evaluation
+        eval_dir = output.parent / "eval_chunks"
+        eval_dir.mkdir(exist_ok=True)
+        for j in self._sample_indices(len(chunks), self.eval_n):
+            (eval_dir / f"{j}.html").write_text(chunks[j], encoding="utf-8")
+            (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
+
         return markdown
+
+    @staticmethod
+    def _sample_indices(total: int, n: int = 20) -> list[int]:
+        """Stratified sampling across front / body / back of the document."""
+        if total <= n:
+            return list(range(total))
+        front = list(range(0, max(1, total // 10)))
+        back  = list(range(total - max(1, total // 10), total))
+        body  = list(range(len(front), total - len(back)))
+        n_front = max(1, n // 7)
+        n_back  = max(1, n // 7)
+        n_body  = n - n_front - n_back
+        return sorted(
+            random.sample(front, min(n_front, len(front))) +
+            random.sample(body,  min(n_body,  len(body)))  +
+            random.sample(back,  min(n_back,  len(back)))
+        )

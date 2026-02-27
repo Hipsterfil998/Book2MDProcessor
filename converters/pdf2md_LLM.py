@@ -4,6 +4,7 @@ pdf_to_markdown.py — PDF → Markdown converter using Qwen2.5-VL via vLLM.
 
 import base64
 import logging
+import random
 from io import BytesIO
 from pathlib import Path
 import fitz
@@ -37,14 +38,17 @@ class PDFToMarkdownConverter:
         model_id: str = "Qwen/Qwen2.5-VL-7B-Instruct",
         dpi: int = 300,
         max_new_tokens: int = 4096,
+        eval_n: int = 20,
     ) -> None:
         self.dpi = dpi
         self.max_new_tokens = max_new_tokens
+        self.eval_n = eval_n
         logger.info("Loading %s...", model_id)
         self.llm = LLM(model=model_id, dtype="bfloat16")
 
     def convert(self, pdf_path: str | Path, output_dir: str | Path) -> Path:
-        """Convert a PDF to Markdown. Returns path to the generated .md file."""
+        """Convert a PDF to Markdown. Returns path to the generated .md file.
+        Sampled pages for evaluation are saved to output_dir/eval_pages/."""
         pdf_path, output_dir = Path(pdf_path), Path(output_dir)
         img_dir = output_dir / "images"
         img_dir.mkdir(parents=True, exist_ok=True)
@@ -70,13 +74,24 @@ class PDFToMarkdownConverter:
         outputs = self.llm.chat(messages, sampling_params=sampling_params)
 
         markdown_pages = []
+        raw_texts = []
         for j, out in enumerate(outputs):
             text = self._resolve_image_refs(out.outputs[0].text, page_images.get(j, []))
+            raw_texts.append(text)
             markdown_pages.append(f"<!-- Page {j + 1} -->\n{text}")
 
         out_file = output_dir / (pdf_path.stem + ".md")
         out_file.write_text("\n\n---\n\n".join(markdown_pages), encoding="utf-8")
         logger.info("Saved → %s", out_file)
+
+        # Save sampled page image + markdown pairs for later evaluation
+        eval_dir = output_dir / "eval_pages"
+        eval_dir.mkdir(exist_ok=True)
+        for j in self._sample_indices(len(pages), self.eval_n):
+            pages[j].save(str(eval_dir / f"{j}.png"))
+            (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
+        logger.info("Eval pages → %s", eval_dir)
+
         return out_file
 
     def _extract_images(self, pdf_path: Path, img_dir: Path) -> dict[int, list[str]]:
@@ -94,6 +109,23 @@ class PDFToMarkdownConverter:
                 page_images[page_idx].append(fname)
         doc.close()
         return page_images
+
+    @staticmethod
+    def _sample_indices(total: int, n: int = 20) -> list[int]:
+        """Stratified sampling across front / body / back of the document."""
+        if total <= n:
+            return list(range(total))
+        front = list(range(0, max(1, total // 10)))
+        back  = list(range(total - max(1, total // 10), total))
+        body  = list(range(len(front), total - len(back)))
+        n_front = max(1, n // 7)
+        n_back  = max(1, n // 7)
+        n_body  = n - n_front - n_back
+        return sorted(
+            random.sample(front, min(n_front, len(front))) +
+            random.sample(body,  min(n_body,  len(body)))  +
+            random.sample(back,  min(n_back,  len(back)))
+        )
 
     @staticmethod
     def _resolve_image_refs(text: str, fnames: list[str]) -> str:
