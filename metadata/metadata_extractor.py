@@ -10,45 +10,7 @@ import json
 import pandas as pd
 from pathlib import Path
 from vllm import LLM, SamplingParams
-from config import TEXT_MODEL_ID, METADATA_MAX_NEW_TOKENS
-
-
-BIBLIO_PROMPT = """\
-You are a bibliographic information extraction assistant. Extract author, title, and \
-publication year from texts in German or Italian.
-
-Output format (JSON):
-{{"author": "Author Name", "title": "Work Title", "year": "YYYY"}}
-
-Rules:
-- For author and title refer to {full_title}. If not present in the text, use the \
-filename info (fields separated by _).
-- If year is missing, use null.
-- Keep original language for author and title.
-- Extract only the 4-digit publication year.
-- Multiple authors as comma-separated string.
-- Output only valid JSON, no additional text.\
-"""
-
-GENRE_PROMPT = """\
-You are a literary genre classifier for Italian and German texts.
-Based on the provided excerpt from the body of a book, classify it into one of these genres:
-- Journalistic: newspapers, magazines, club publications, press office publications, \
-district and municipal gazettes
-- Functional/Gebrauchstexte: school books, health guides, cookbooks, hiking guides, \
-regional guides, manuals, advertisements, programme booklets, ordinances
-- Factual/Non fiction/Wissenschaft: non-fiction, popular science, essays in journals \
-or conference proceedings, scientific texts, theses, dissertations, thematic periodicals
-- Fiction/Belletristik: novels, novellas, short stories, biographies, literary letters, \
-essays, sagas, fairy tales, crime stories, children's literature, drama, autobiographical \
-literature, travelogues
-
-Output format (JSON):
-{{"genre": "Genre"}}
-
-Rules:
-- Output only valid JSON, no additional text.\
-"""
+from config import TEXT_MODEL_ID, METADATA_MAX_NEW_TOKENS, BIBLIO_PROMPT, GENRE_PROMPT
 
 
 class MetadataExtractor:
