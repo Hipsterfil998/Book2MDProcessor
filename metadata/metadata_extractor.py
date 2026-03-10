@@ -1,5 +1,4 @@
-"""
-metadata_extractor.py — Bibliographic metadata extractor using Qwen2.5 via vLLM.
+"""metadata_extractor.py — Bibliographic metadata extractor using Qwen2.5 via vLLM.
 
 Uses pre-saved eval pages produced during conversion:
   - Front pages (lowest indices) → author, title, year
@@ -15,67 +14,38 @@ from utils import suppress_worker_stderr
 
 
 class MetadataExtractor:
-    """
-    Extracts bibliographic metadata from pre-saved eval pages.
+    """Extracts bibliographic metadata from pre-saved eval pages."""
 
-    Args:
-        model_id: HuggingFace model ID for generation.
-        max_new_tokens: Max tokens for each generation call.
-    """
-
-    def __init__(
-        self,
-        model_id: str = TEXT_MODEL_ID,
-        max_new_tokens: int = METADATA_MAX_NEW_TOKENS,
-    ):
+    def __init__(self, model_id: str = TEXT_MODEL_ID, max_new_tokens: int = METADATA_MAX_NEW_TOKENS):
         self.max_new_tokens = max_new_tokens
         with suppress_worker_stderr():
             self.llm = LLM(model=model_id, dtype="bfloat16")
 
     def collect_samples(self, output_dir: str) -> list[dict]:
-        """
-        Walk output_dir and collect eval text per book.
+        """Walk output_dir and collect eval text per book.
 
-        For each book subfolder, reads .md files from eval_pages/ or eval_chunks/,
-        sorted by page/chunk index:
-          - front_text: first 3 pages (title page, TOC, preface area)
-          - body_text:  up to 2 middle pages (main content, used for genre)
-
-        Returns:
-            List of dicts with keys: book_name, front_text, body_text.
+        Returns list of dicts with keys: book_name, front_text, body_text.
         """
         samples = []
         for book_dir in sorted(Path(output_dir).iterdir()):
             if not book_dir.is_dir():
                 continue
-
             eval_dir = book_dir / "eval_pages"
             if not eval_dir.exists():
                 eval_dir = book_dir / "eval_chunks"
             if not eval_dir.exists():
                 continue
-
             md_files = sorted(eval_dir.glob("*.md"), key=lambda p: int(p.stem))
             if not md_files:
                 continue
-
             front_files = md_files[:3]
             body_files = md_files[3:-2] if len(md_files) > 5 else md_files[1:-1]
-
-            front_text = "\n\n".join(f.read_text(encoding="utf-8") for f in front_files)
-            body_text  = "\n\n".join(f.read_text(encoding="utf-8") for f in body_files[:2])
-
             samples.append({
                 "book_name": book_dir.name,
-                "front_text": front_text,
-                "body_text": body_text,
+                "front_text": "\n\n".join(f.read_text(encoding="utf-8") for f in front_files),
+                "body_text":  "\n\n".join(f.read_text(encoding="utf-8") for f in body_files[:2]),
             })
         return samples
-
-    def _run_inference(self, dataset: list) -> list[str]:
-        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
-        outputs = self.llm.chat(dataset, sampling_params=sampling_params)
-        return [out.outputs[0].text for out in outputs]
 
     @staticmethod
     def _parse_json(raw: str) -> dict | None:
@@ -94,15 +64,7 @@ class MetadataExtractor:
                 return None
 
     def run(self, output_dir: str, output_csv: str) -> pd.DataFrame:
-        """
-        Full pipeline: collect eval pages → infer biblio → infer genre → save CSV.
-
-        Args:
-            output_dir: Directory with book subfolders (each containing eval_pages/ or eval_chunks/).
-            output_csv: Output CSV file path.
-        Returns:
-            DataFrame with columns: author, title, year, genre, book.
-        """
+        """Collect eval pages → infer biblio + genre → save CSV."""
         samples = self.collect_samples(output_dir)
         if not samples:
             print("[warn] No eval pages found in", output_dir)
@@ -123,8 +85,9 @@ class MetadataExtractor:
             for s in samples
         ]
 
-        biblio_outputs = self._run_inference(biblio_dataset)
-        genre_outputs  = self._run_inference(genre_dataset)
+        sp = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
+        biblio_outputs = [o.outputs[0].text for o in self.llm.chat(biblio_dataset, sp)]
+        genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]
 
         records = []
         for s, biblio_raw, genre_raw in zip(samples, biblio_outputs, genre_outputs):

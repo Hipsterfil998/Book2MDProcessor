@@ -1,5 +1,4 @@
-"""
-Dependency parsing of Markdown files using Stanza.
+"""Dependency parsing of Markdown files using Stanza.
 Markdown is converted to plain text before parsing.
 Supports Italian and German. Outputs CoNLL-U and/or JSON.
 """
@@ -29,19 +28,15 @@ class DependencyParser:
         html = markdown.markdown(md_text)
         return BeautifulSoup(html, "html.parser").get_text(separator="\n")
 
-    def _ensure_model(self, lang: str) -> None:
-        """Download Stanza model if not already present."""
-        try:
-            stanza.Pipeline(lang=lang, processors="tokenize", download_method=None)
-        except Exception:
-            print(f"Downloading Stanza model for '{lang}'...")
-            stanza.download(lang)
-
     def _load_pipelines(self) -> None:
-        """Initialize one Stanza pipeline per language."""
+        """Download (if needed) and initialize one Stanza pipeline per language."""
         for lang in self.langs:
+            try:
+                stanza.Pipeline(lang=lang, processors="tokenize", download_method=None)
+            except Exception:
+                print(f"Downloading Stanza model for '{lang}'...")
+                stanza.download(lang)
             print(f"Loading Stanza pipeline for '{lang}'...")
-            self._ensure_model(lang)
             self.pipelines[lang] = stanza.Pipeline(
                 lang=lang,
                 processors="tokenize,mwt,pos,lemma,depparse",
@@ -71,9 +66,8 @@ class DependencyParser:
 
     def _doc_to_json(self, doc, source_file: str, lang: str) -> dict:
         """Convert a Stanza Document to a JSON-serialisable dict."""
-        sentences = []
-        for sentence in doc.sentences:
-            tokens = [
+        sentences = [
+            {"tokens": [
                 {
                     "id": word.id,
                     "text": word.text,
@@ -85,15 +79,13 @@ class DependencyParser:
                     "deprel": word.deprel,
                 }
                 for word in sentence.words
-            ]
-            sentences.append({"tokens": tokens})
+            ]}
+            for sentence in doc.sentences
+        ]
         return {"file": source_file, "lang": lang, "sentences": sentences}
 
     def run(self, input_dir: str, output_dir: str = None) -> None:
-        """
-        Parse all .md files in input_dir.
-        For each file: convert md -> txt, then run dependency parsing.
-        """
+        """Parse all .md files in input_dir and write CoNLL-U / JSON output."""
         input_path = Path(input_dir)
         output_path = Path(output_dir) if output_dir else input_path / "parsed_output"
         output_path.mkdir(parents=True, exist_ok=True)
@@ -110,9 +102,7 @@ class DependencyParser:
 
         for md_file in md_files:
             print(f"Processing: {md_file.name}")
-            md_text = md_file.read_text(encoding="utf-8")
-            text = self._md_to_txt(md_text)
-
+            text = self._md_to_txt(md_file.read_text(encoding="utf-8"))
             if not text.strip():
                 print(f"  Skipping empty file: {md_file.name}")
                 continue

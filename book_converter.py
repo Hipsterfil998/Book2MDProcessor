@@ -1,4 +1,4 @@
-from config import PDF_MODEL_ID, TEXT_MODEL_ID, INPUT_DIR, OUTPUT_DIR  # must be first: sets env vars before vllm is imported
+from config import PDF_MODEL_ID, TEXT_MODEL_ID, INPUT_DIR, OUTPUT_DIR
 from pathlib import Path
 from tqdm import tqdm
 from converters.text_extraction import DocumentProcessor
