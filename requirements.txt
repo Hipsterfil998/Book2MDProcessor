@@ -4,6 +4,7 @@ langdetect
 ebooklib
 pymupdf
 vllm>=0.8.0
+protobuf<4.0
 huggingface_hub
 pandas
 openpyxl

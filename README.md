@@ -2,6 +2,8 @@
 
 Pipeline for converting Italian and German books (PDF/EPUB) to structured Markdown, extracting bibliographic metadata, and evaluating conversion quality, all via vLLM inference.
 
+**[📖 Full Documentation](https://hipsterfil998.github.io/Book_processor/)**
+
 ---
 
 ## Project Structure

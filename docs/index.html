@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Conversion Pipeline — Documentation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #7c6af7;
+      --accent2: #56cfb2;
+      --text: #e2e4f0;
+      --muted: #8b8fa8;
+      --code-bg: #12141e;
+      --sidebar-w: 270px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    nav {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    nav .logo {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+      display: block;
+    }
+
+    nav ul { list-style: none; }
+    nav ul li { margin: 0.15rem 0; }
+
+    nav ul li a {
+      display: block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    nav ul li a:hover,
+    nav ul li a.active {
+      background: rgba(124, 106, 247, 0.12);
+      color: var(--text);
+    }
+
+    nav ul li.section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 1rem 0.75rem 0.25rem;
+    }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      max-width: 860px;
+      padding: 3rem 3.5rem;
+      min-width: 0;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 3rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      scroll-margin-top: 1.5rem;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent2);
+      margin: 1.75rem 0 0.5rem;
+      scroll-margin-top: 1.5rem;
+    }
+
+    p { margin-bottom: 0.9rem; color: var(--text); }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    strong { color: #fff; font-weight: 600; }
+    em { color: var(--accent2); font-style: italic; }
+
+    code {
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.82em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      color: #c9d1d9;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.25rem;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #c9d1d9;
+    }
+
+    ul, ol {
+      padding-left: 1.5rem;
+      margin-bottom: 0.9rem;
+    }
+    li { margin-bottom: 0.25rem; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.88rem;
+    }
+    th {
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    td {
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+      display: inline-block;
+      background: rgba(124, 106, 247, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(124, 106, 247, 0.3);
+      border-radius: 20px;
+      padding: 0.2em 0.8em;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-right: 0.4rem;
+    }
+
+    .flow-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
+      line-height: 1.8;
+      color: #8b8fa8;
+      margin: 1rem 0 1.5rem;
+    }
+    .flow-box .arrow { color: var(--accent); }
+    .flow-box .file  { color: var(--accent2); }
+    .flow-box .dir   { color: #e2e4f0; }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    @media (max-width: 768px) {
+      nav { display: none; }
+      main { padding: 2rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar navigation ── -->
+<nav>
+  <span class="logo">Book Pipeline</span>
+  <ul>
+    <li class="section-title">Overview</li>
+    <li><a href="#overview">Introduction</a></li>
+    <li><a href="#structure">Project Structure</a></li>
+    <li><a href="#flow">Pipeline Flow</a></li>
+
+    <li class="section-title">Modules</li>
+    <li><a href="#config">config.py</a></li>
+    <li><a href="#utils">utils.py</a></li>
+    <li><a href="#orchestrator">book_converter.py</a></li>
+    <li><a href="#rule-based">text_extraction.py</a></li>
+    <li><a href="#pdf-llm">pdf2md_LLM.py</a></li>
+    <li><a href="#epub-llm">epub2md_LLM.py</a></li>
+    <li><a href="#metadata">metadata_extractor.py</a></li>
+    <li><a href="#evaluator">evaluator.py</a></li>
+    <li><a href="#parser">dependency_parsing.py</a></li>
+
+    <li class="section-title">Reference</li>
+    <li><a href="#decisions">Architectural Decisions</a></li>
+    <li><a href="#tests">Tests</a></li>
+  </ul>
+</nav>
+
+<!-- ── Main content ── -->
+<main>
+
+  <h1>Book Conversion Pipeline</h1>
+  <p class="subtitle">
+    Convert Italian and German books (PDF / EPUB) to structured Markdown,
+    extract bibliographic metadata, evaluate quality, and annotate linguistic structure.
+  </p>
+
+  <!-- Overview -->
+  <h2 id="overview">Overview</h2>
+  <p>
+    The pipeline converts books in PDF and EPUB format into structured Markdown, extracts
+    bibliographic and genre metadata, evaluates conversion quality, and produces dependency
+    parsing annotations. Everything is orchestrated by a single central class
+    (<code>ConverterPipeline</code>) and configured through a single <code>config.py</code> file.
+  </p>
+
+  <!-- Project Structure -->
+  <h2 id="structure">Project Structure</h2>
+  <pre><code>.
+├── config.py                        # Central configuration
+├── book_converter.py                # Pipeline orchestrator
+├── utils.py                         # Shared utilities
+│
+├── converters/
+│   ├── text_extraction.py           # Rule-based conversion (no LLM)
+│   ├── pdf2md_LLM.py                # PDF to Markdown via Qwen2.5-VL
+│   └── epub2md_LLM.py               # EPUB to Markdown via Qwen2.5
+│
+├── metadata/
+│   └── metadata_extractor.py        # Author / title / year / genre extraction
+│
+├── quality_evaluation/
+│   └── evaluator.py                 # LLM-as-judge faithfulness scoring
+│
+├── dependency_parsing/
+│   └── dependency_parsing.py        # Linguistic annotation with Stanza
+│
+├── books/                           # Input: original PDF and EPUB files
+├── output/                          # Output: Markdown + eval pages/chunks
+└── scores/                          # Per-book score JSON files</code></pre>
+
+  <!-- Pipeline Flow -->
+  <h2 id="flow">Pipeline Flow</h2>
+  <div class="flow-box">
+    <span class="dir">books/</span><br>
+    &nbsp;&nbsp;<span class="file">*.pdf</span>  <span class="arrow">--&gt;</span> PDFConverter  <span class="arrow">--&gt;</span> <span class="file">output/{stem}/{stem}.md</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_pages/{i}.png + {i}.md</span><br>
+    &nbsp;&nbsp;<span class="file">*.epub</span> <span class="arrow">--&gt;</span> EPUBConverter <span class="arrow">--&gt;</span> <span class="file">output/{stem}/{stem}.md</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_chunks/{i}.html + {i}.md</span><br>
+    <br>
+    <span class="dir">output/</span><br>
+    &nbsp;&nbsp;<span class="file">**/eval_pages/</span>  <span class="arrow">--&gt;</span> QualityEvaluator  <span class="arrow">--&gt;</span> <span class="file">scores/{book}_scores.json</span><br>
+    &nbsp;&nbsp;<span class="file">**/eval_pages/</span>  <span class="arrow">--&gt;</span> MetadataExtractor <span class="arrow">--&gt;</span> <span class="file">metadata/metadata.csv</span><br>
+    &nbsp;&nbsp;<span class="file">**/{stem}.md</span>    <span class="arrow">--&gt;</span> DependencyParser  <span class="arrow">--&gt;</span> <span class="file">parsed/{stem}.conllu</span>
+  </div>
+
+  <hr>
+
+  <!-- config.py -->
+  <h2 id="config"><code>config.py</code>: Central Configuration</h2>
+  <p>
+    All parametric values (models, prompts, paths, token limits) are defined here.
+    There are no magic constants scattered across the codebase.
+  </p>
+
+  <h3>Models</h3>
+  <pre><code>PDF_MODEL_ID  = "Qwen/Qwen2.5-VL-7B-Instruct"  # vision-language (PDF pages as images)
+TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB chunks, metadata)</code></pre>
+  <p>
+    Qwen2.5 is open-weight, available on HuggingFace, and has strong support for Italian and
+    German. The VL variant is required for PDF because pages are rasterized to PNG rather than
+    extracting text directly, which preserves layout, formulas, and images.
+  </p>
+
+  <h3>Prefix Caching</h3>
+  <p>
+    <code>ENABLE_PREFIX_CACHING = True</code> enables vLLM Automatic Prefix Caching (APC).
+    Since all books in a batch share the same system prompt, vLLM caches it in the KV states
+    and avoids recomputing it per request. All system prompts
+    (<code>BIBLIO_PROMPT</code>, <code>GENRE_PROMPT</code>, <code>PDF_PROMPT</code>)
+    are constants to maximize the cache hit rate.
+  </p>
+
+  <h3>Stderr filtering</h3>
+  <p>
+    <code>_StderrFilter</code> filters non-fatal protobuf/grpc error messages that vLLM
+    emits on stderr. The underlying incompatibility is pinned at the dependency level
+    (<code>protobuf&lt;4.0</code> in <code>requirements.txt</code>).
+  </p>
+
+  <hr>
+
+  <!-- utils.py -->
+  <h2 id="utils"><code>utils.py</code>: Shared Utilities</h2>
+
+  <h3>pil_to_data_url(img)</h3>
+  <p>
+    Encodes a PIL image as a base64 PNG data URL (<code>data:image/png;base64,...</code>).
+    Used to pass PNG pages to the vision-language model via vLLM's OpenAI-compatible
+    multimodal format.
+  </p>
+
+  <h3>sample_indices(total, n=20)</h3>
+  <p>Selects <code>n</code> page indices for evaluation using a hybrid strategy:</p>
+  <ol>
+    <li><strong>Guaranteed:</strong> the first <code>min(10, n)</code> pages are always included (title page, colophon, metadata).</li>
+    <li><strong>Stratified:</strong> remaining slots are filled by random sampling — ~75% from the body, ~25% from the back.</li>
+  </ol>
+  <p>
+    Pure uniform sampling over-represents the body and ignores final pages (indexes, colophons).
+    The 75/25 ratio empirically covers typographic variability better.
+  </p>
+
+  <h3>suppress_worker_stderr()</h3>
+  <p>
+    Intercepts file descriptor 2 at the OS level (not just <code>sys.stderr</code>) during
+    LLM initialization. vLLM worker processes are forked and inherit fd 2 directly, so a
+    Python-level wrapper is not sufficient.
+  </p>
+
+  <hr>
+
+  <!-- book_converter.py -->
+  <h2 id="orchestrator"><code>book_converter.py</code>: Pipeline Orchestrator</h2>
+  <p><code>ConverterPipeline</code> exposes three conversion methods:</p>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Converter</th><th>When to use</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>run_simple()</code></td><td>DocumentProcessor (rule-based)</td><td>Quick draft, no GPU needed</td></tr>
+      <tr><td><code>run_pdf_llm()</code></td><td>PDFToMarkdownConverter</td><td>PDFs with complex layout</td></tr>
+      <tr><td><code>run_epub_llm()</code></td><td>EpubToMarkdownConverter</td><td>EPUB files</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <strong>Resume and idempotency:</strong> <code>_already_converted(stem)</code> checks
+    whether <code>output/{stem}/{stem}.md</code> exists. If it does, the book is skipped.
+    This allows the pipeline to be interrupted and resumed without reprocessing already-converted
+    books, which is critical when working with large corpora.
+  </p>
+
+  <hr>
+
+  <!-- text_extraction.py -->
+  <h2 id="rule-based"><code>converters/text_extraction.py</code>: Rule-Based Conversion</h2>
+  <p><code>DocumentProcessor</code> converts without an LLM using deterministic rules.</p>
+
+  <h3>PDF</h3>
+  <p>Uses PyMuPDF (<code>fitz</code>) in <code>rawdict</code> mode, which exposes font size and flags per span.</p>
+  <table>
+    <thead><tr><th>Condition</th><th>Markdown output</th></tr></thead>
+    <tbody>
+      <tr><td>font size &ge; 22</td><td><code># H1</code></td></tr>
+      <tr><td>font size &ge; 18</td><td><code>## H2</code></td></tr>
+      <tr><td>font size &ge; 14</td><td><code>### H3</code></td></tr>
+      <tr><td>font size &ge; 12 + bold</td><td><code>#### H4</code></td></tr>
+      <tr><td>flags &amp; 16 (bold)</td><td><code>**text**</code></td></tr>
+      <tr><td>flags &amp; 2 (italic)</td><td><code>*text*</code></td></tr>
+      <tr><td>size &lt; 9, starts with †‡§</td><td><code>&gt; [^fn]: ...</code></td></tr>
+      <tr><td>matches figura/fig/tabella/tab</td><td><code>*caption*</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>EPUB</h3>
+  <p>
+    Uses <code>ebooklib</code> to extract HTML chapters and a recursive HTML-to-Markdown walker
+    that handles: headings, bold/italic, code blocks, lists, GFM tables, footnotes
+    (<code>epub:type="footnote"</code>), figures with captions, blockquotes, and callout boxes
+    (detected by CSS class: <code>callout|note|warning|tip</code>).
+  </p>
+  <p>
+    <strong>Limitation:</strong> fails on scanned PDFs, complex LaTeX formulas, and multi-column
+    layouts — motivating the LLM-based converters.
+  </p>
+
+  <hr>
+
+  <!-- pdf2md_LLM.py -->
+  <h2 id="pdf-llm"><code>converters/pdf2md_LLM.py</code>: PDF to Markdown via LLM</h2>
+  <p><code>PDFToMarkdownConverter</code> uses Qwen2.5-VL (vision-language):</p>
+  <ol>
+    <li>Rasterizes each PDF page to PNG at <code>PDF_DPI=300</code> dpi.</li>
+    <li>Encodes each PNG as a base64 data URL.</li>
+    <li>Builds a batch of multimodal messages and runs inference with <code>LLM.chat()</code> — all pages in one call.</li>
+    <li>Saves the resulting Markdown and sampled pages to <code>eval_pages/{i}.png</code> + <code>{i}.md</code>.</li>
+  </ol>
+  <p>
+    <strong>Why rasterize?</strong> Direct text extraction loses visual structure (columns, tables,
+    equations). Rasterization lets the model see the page exactly as a human reader would.
+  </p>
+  <p>
+    <strong>Batching:</strong> vLLM's continuous batching runs parallel inference on all pages
+    in a single forward pass — far more efficient than page-by-page inference.
+  </p>
+
+  <hr>
+
+  <!-- epub2md_LLM.py -->
+  <h2 id="epub-llm"><code>converters/epub2md_LLM.py</code>: EPUB to Markdown via LLM</h2>
+  <p><code>EpubToMarkdownConverter</code> uses Qwen2.5 (text-only):</p>
+  <ol>
+    <li>Converts the EPUB to HTML using <code>pypandoc</code>.</li>
+    <li>Extracts images to <code>images/</code> and rewrites <code>&lt;img&gt;</code> src attributes.</li>
+    <li>Splits HTML into chunks of at most <code>EPUB_MAX_CHUNK_CHARS=8000</code> chars at top-level block tags.</li>
+    <li>Runs batch inference on all chunks and joins results with <code>\n\n---\n\n</code>.</li>
+    <li>Saves sampled chunks to <code>eval_chunks/{i}.html</code> + <code>{i}.md</code>.</li>
+  </ol>
+  <p>
+    <strong>Why chunk by HTML tag?</strong> Splitting at top-level tags ensures each chunk is
+    semantically coherent. Fixed-size windows would cut mid-sentence.
+  </p>
+
+  <hr>
+
+  <!-- metadata_extractor.py -->
+  <h2 id="metadata"><code>metadata/metadata_extractor.py</code>: Metadata Extraction</h2>
+  <p>
+    <code>MetadataExtractor</code> extracts five fields — author, title, year, genre — using
+    zero-shot prompting on the text model.
+  </p>
+
+  <h3>Page selection in collect_samples()</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Pages</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td><code>front_files</code></td><td>0 – 4</td><td>author, title, year (BIBLIO_PROMPT)</td></tr>
+      <tr><td><code>body_files</code></td><td>7 – 9</td><td>genre (GENRE_PROMPT)</td></tr>
+    </tbody>
+  </table>
+  <p>
+    All selected pages belong to the guaranteed first-10 set, so they are always available
+    regardless of book length. Pages 7–9 are past the front matter but still early enough
+    to represent the book's tone and style.
+  </p>
+
+  <h3>Two separate batch calls in run()</h3>
+  <pre><code># Call 1: bibliographic info
+biblio_outputs = [o.outputs[0].text for o in self.llm.chat(biblio_dataset, sp)]
+
+# Call 2: genre
+genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</code></pre>
+  <p>
+    Keeping the calls separate maximizes prefix cache hit rate: within each batch, all messages
+    share the same constant system prompt.
+  </p>
+
+  <h3>CSV resume</h3>
+  <p>
+    If <code>output_csv</code> already exists, existing records are loaded, already-processed
+    books are filtered out, and only new records are appended. If nothing is new, the method
+    returns early without rewriting the file (preserving <code>mtime</code>).
+  </p>
+
+  <h3>_parse_json(raw)</h3>
+  <p>
+    Handles imperfect model output: first attempts <code>json.loads()</code> directly; on failure,
+    recovers by taking the text before the first blank line and appending a missing
+    <code>}</code> if needed.
+  </p>
+
+  <hr>
+
+  <!-- evaluator.py -->
+  <h2 id="evaluator"><code>quality_evaluation/evaluator.py</code>: Quality Evaluation</h2>
+  <p>
+    <code>QualityEvaluator</code> implements the <strong>LLM-as-judge</strong> pattern:
+    a language model evaluates the output of another model.
+  </p>
+
+  <h3>evaluate_pdf()</h3>
+  <p>
+    For each <code>{i}.png</code> + <code>{i}.md</code> pair, passes the original page image
+    and generated Markdown to the judge, which scores faithfulness on three dimensions:
+  </p>
+  <ul>
+    <li><strong>text</strong> (1–5): all text from the source is present and nothing is invented</li>
+    <li><strong>structure</strong> (1–5): headings, tables, lists match the visual layout</li>
+    <li><strong>math</strong> (1–5): formulas match the source (5 if no math is present)</li>
+  </ul>
+
+  <h3>evaluate_epub()</h3>
+  <p>
+    For each <code>{i}.html</code> + <code>{i}.md</code> pair, scores
+    <strong>text</strong> and <strong>structure</strong> (no math dimension for HTML).
+  </p>
+  <p>
+    <strong>Design note:</strong> evaluation uses only the pairs saved during conversion —
+    no access to original files required. This decouples the evaluation stage from the
+    conversion stage.
+  </p>
+
+  <hr>
+
+  <!-- dependency_parsing.py -->
+  <h2 id="parser"><code>dependency_parsing/dependency_parsing.py</code>: Linguistic Annotation</h2>
+  <p>
+    <code>DependencyParser</code> applies morphosyntactic dependency analysis to the main
+    Markdown file of each converted book.
+  </p>
+
+  <h3>Flow</h3>
+  <ol>
+    <li>
+      <code>run()</code> finds one <code>.md</code> per book by matching
+      <code>output/{stem}/{stem}.md</code> — eval pages and eval chunks are ignored.
+    </li>
+    <li>Markdown is stripped to plain text via <code>markdown</code> + BeautifulSoup.</li>
+    <li>
+      Language is detected automatically from the first 3000 characters using
+      <code>langdetect</code> (<code>DetectorFactory.seed = 0</code> for reproducibility).
+    </li>
+    <li>Only the matching Stanza pipeline runs: tokenize + MWT + POS + lemma + depparse.</li>
+    <li>Output: a single <code>{stem}.conllu</code> / <code>{stem}.json</code>, no language suffix.</li>
+  </ol>
+
+  <h3>CoNLL-U token fields</h3>
+  <pre><code>id | text | lemma | upos | xpos | feats | head | deprel | _ | _</code></pre>
+  <p>
+    <code>head</code> is the index of the governing token (0 = root).
+    <code>deprel</code> is the dependency relation type (e.g. <code>nsubj</code>, <code>obj</code>, <code>root</code>).
+  </p>
+
+  <hr>
+
+  <!-- Architectural Decisions -->
+  <h2 id="decisions">Key Architectural Decisions</h2>
+  <table>
+    <thead>
+      <tr><th>Decision</th><th>Discarded alternative</th><th>Rationale</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>vLLM batching for the entire book</td>
+        <td>Page-by-page inference</td>
+        <td>Much higher throughput via continuous batching</td>
+      </tr>
+      <tr>
+        <td>PDF rasterization to PNG</td>
+        <td>PyMuPDF text extraction</td>
+        <td>Preserves visual layout, formulas, and complex tables</td>
+      </tr>
+      <tr>
+        <td>EPUB chunking by HTML tag</td>
+        <td>Fixed-size text windows</td>
+        <td>Semantically coherent chunks, no text split mid-sentence</td>
+      </tr>
+      <tr>
+        <td>Constant system prompts</td>
+        <td>Prompts with inline variables</td>
+        <td>Maximizes prefix cache hit rate with vLLM APC</td>
+      </tr>
+      <tr>
+        <td>Eval pages saved during conversion</td>
+        <td>Re-reading original files for eval</td>
+        <td>Decouples stages; evaluation works without the originals</td>
+      </tr>
+      <tr>
+        <td>Resume based on <code>.md</code> existence</td>
+        <td>Flags in a database or JSON</td>
+        <td>Zero overhead; survives crashes and interruptions</td>
+      </tr>
+      <tr>
+        <td>Two separate LLMs (VL + text)</td>
+        <td>A single multimodal model</td>
+        <td>Text model is faster and uses less VRAM for EPUB and metadata</td>
+      </tr>
+      <tr>
+        <td>Automatic language detection per book</td>
+        <td>Running all pipelines on every book</td>
+        <td>Avoids redundant computation; one correctly-annotated file per book</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <!-- Tests -->
+  <h2 id="tests">Tests</h2>
+  <p>
+    Tests use pytest's <code>tmp_path</code> fixture for complete isolation (no global state).
+    LLM models are replaced by stubs (<code>FakeLLM</code>) that return fixed JSON responses,
+    so all tests run without a GPU.
+  </p>
+  <ul>
+    <li><strong>test_book_converter.py:</strong> tests resume logic (<code>_already_converted</code>) and correct skipping across all three run methods</li>
+    <li><strong>test_metadata.py:</strong> tests <code>_parse_json</code> (robust parsing), <code>collect_samples</code> (page selection), and <code>run</code> (CSV append/skip behavior)</li>
+    <li><strong>test_utils.py:</strong> tests <code>sample_indices</code> (first-10 guarantee, stratification) and <code>pil_to_data_url</code> (PNG round-trip)</li>
+  </ul>
+
+</main>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const headings = document.querySelectorAll('h2[id], h3[id]');
+  const links = document.querySelectorAll('nav a');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  headings.forEach(h => observer.observe(h));
+</script>
+
+</body>
+</html>
