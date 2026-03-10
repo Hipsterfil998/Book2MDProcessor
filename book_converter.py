@@ -24,8 +24,8 @@ class ConverterPipeline:
         """Convert all PDFs and EPUBs using DocumentProcessor (no LLM)."""
         processor = DocumentProcessor()
         documents = [
-            p for ext in ("*.pdf", "*.epub")
-            for p in Path(self.input_dir).rglob(ext)
+            p for p in Path(self.input_dir).rglob("*")
+            if p.suffix.lower() in (".pdf", ".epub")
         ]
 
         for filepath in tqdm(documents, desc="Converting", unit="file"):
@@ -39,7 +39,8 @@ class ConverterPipeline:
         """Convert all PDFs using PDFToMarkdownConverter (LLM)."""
         converter = PDFToMarkdownConverter(model_id=self.pdf_model_id)
 
-        for pdf_path in tqdm(Path(self.input_dir).rglob("*.pdf"), desc="Converting PDFs (LLM)", unit="file"):
+        pdf_files = [p for p in Path(self.input_dir).rglob("*") if p.suffix.lower() == ".pdf"]
+        for pdf_path in tqdm(pdf_files, desc="Converting PDFs (LLM)", unit="file"):
             doc_output = Path(self.output_dir) / pdf_path.stem
             doc_output.mkdir(parents=True, exist_ok=True)
             converter.convert(pdf_path, output_dir=doc_output)
@@ -48,7 +49,8 @@ class ConverterPipeline:
         """Convert all EPUBs using EpubToMarkdownConverter (LLM)."""
         converter = EpubToMarkdownConverter(model_id=self.text_model_id)
 
-        for epub_path in tqdm(Path(self.input_dir).rglob("*.epub"), desc="Converting EPUBs (LLM)", unit="file"):
+        epub_files = [p for p in Path(self.input_dir).rglob("*") if p.suffix.lower() == ".epub"]
+        for epub_path in tqdm(epub_files, desc="Converting EPUBs (LLM)", unit="file"):
             doc_output_dir = Path(self.output_dir) / epub_path.stem
             doc_output_dir.mkdir(parents=True, exist_ok=True)
             doc_output_md = doc_output_dir / (epub_path.stem + ".md")
