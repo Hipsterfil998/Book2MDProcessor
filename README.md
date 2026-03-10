@@ -9,18 +9,18 @@ Pipeline for converting Italian and German books (PDF/EPUB) to structured Markdo
 ```
 ├── config.py                      # Central configuration: models, paths, parameters, prompts
 ├── utils.py                       # Shared utilities (image encoding, stratified sampling)
-├── book_converter.py              # Main pipeline orchestrator
+├── book_converter.py              # Main pipeline orchestrator (with resume support)
 ├── converters/
 │   ├── text_extraction.py         # Rule-based PDF/EPUB -> Markdown (no LLM)
 │   ├── pdf2md_LLM.py              # PDF -> Markdown via Qwen2.5-VL (vision LLM)
 │   └── epub2md_LLM.py             # EPUB -> Markdown via Qwen2.5 (text LLM)
 ├── metadata/
-│   └── metadata_extractor.py      # Author/title/year/genre extraction
+│   └── metadata_extractor.py      # Author/title/year/genre extraction (with CSV resume)
 ├── quality_evaluation/
 │   └── evaluator.py               # LLM-as-judge faithfulness evaluation
 ├── dependency_parsing/
 │   └── dependency_parsing.py      # Stanza-based dependency parsing
-├── test_data/                     # Place test PDF/EPUB files here
+├── tests/                         # pytest test suite
 └── requirements.txt
 ```
 
@@ -28,7 +28,7 @@ Pipeline for converting Italian and German books (PDF/EPUB) to structured Markdo
 
 ## Configuration
 
-All parameters and prompts are centralised in `config.py`. Edit this file before running on Colab; no need to touch individual modules.
+All parameters and prompts are centralised in `config.py`. Edit this file before running; no need to touch individual modules.
 
 ```python
 # Models
@@ -101,6 +101,8 @@ pipeline.run_epub_llm()   # converts all .epub files
 # pipeline.run_simple()   # rule-based fallback, no LLM
 ```
 
+**Resume support:** if `output/` already contains converted books (i.e. `output/{book_name}/{book_name}.md` exists), those books are automatically skipped. Re-running the pipeline after an interruption will pick up from where it left off.
+
 ### Extract metadata
 
 ```python
@@ -108,7 +110,7 @@ from metadata.metadata_extractor import MetadataExtractor
 
 extractor = MetadataExtractor()
 extractor.run(
-    output_dir="output/",          # folder with converted book subfolders
+    output_dir="output/",              # folder with converted book subfolders
     output_csv="metadata/metadata.csv"
 )
 ```
@@ -118,6 +120,8 @@ Extracts per book:
 - **Genre**: from body pages (main content)
 
 Genres: `Journalistic`, `Functional/Gebrauchstexte`, `Factual/Non fiction/Wissenschaft`, `Fiction/Belletristik`
+
+**Resume support:** if `metadata.csv` already exists, books already listed in it are skipped and only new entries are appended. The existing rows are never overwritten.
 
 ### Evaluate conversion quality
 

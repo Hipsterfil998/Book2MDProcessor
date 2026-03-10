@@ -103,11 +103,12 @@ You are a bibliographic information extraction assistant. Extract author, title,
 publication year from texts in German or Italian.
 
 Output format (JSON):
-{{"author": "Author Name", "title": "Work Title", "year": "YYYY"}}
+{"author": "Author Name", "title": "Work Title", "year": "YYYY"}
 
 Rules:
-- For author and title refer to {full_title}. If not present in the text, use the \
-filename info (fields separated by _).
+- The user message starts with "Book filename: <name>" — use that as reference for \
+author and title if they are not found in the text (fields in the filename are \
+separated by _).
 - If year is missing, use null.
 - Keep original language for author and title.
 - Extract only the 4-digit publication year.
@@ -134,6 +135,9 @@ Output format (JSON):
 Rules:
 - Output only valid JSON, no additional text.\
 """
+
+# ── vLLM inference ────────────────────────────────────────────────────────────
+ENABLE_PREFIX_CACHING = True  # cache KV states of shared prompt prefixes
 
 # ── Dependency parsing ────────────────────────────────────────────────────────
 PARSE_LANGS         = ["it", "de"]

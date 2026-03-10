@@ -8,7 +8,7 @@ Uses pre-saved eval pages produced during conversion:
 import json
 import pandas as pd
 from pathlib import Path
-from config import TEXT_MODEL_ID, METADATA_MAX_NEW_TOKENS, BIBLIO_PROMPT, GENRE_PROMPT
+from config import TEXT_MODEL_ID, METADATA_MAX_NEW_TOKENS, BIBLIO_PROMPT, GENRE_PROMPT, ENABLE_PREFIX_CACHING
 from vllm import LLM, SamplingParams
 from utils import suppress_worker_stderr
 
@@ -19,7 +19,8 @@ class MetadataExtractor:
     def __init__(self, model_id: str = TEXT_MODEL_ID, max_new_tokens: int = METADATA_MAX_NEW_TOKENS):
         self.max_new_tokens = max_new_tokens
         with suppress_worker_stderr():
-            self.llm = LLM(model=model_id, dtype="bfloat16")
+            self.llm = LLM(model=model_id, dtype="bfloat16",
+                           enable_prefix_caching=ENABLE_PREFIX_CACHING)
 
     def collect_samples(self, output_dir: str) -> list[dict]:
         """Walk output_dir and collect eval text per book.
@@ -64,16 +65,29 @@ class MetadataExtractor:
                 return None
 
     def run(self, output_dir: str, output_csv: str) -> pd.DataFrame:
-        """Collect eval pages → infer biblio + genre → save CSV."""
+        """Collect eval pages → infer biblio + genre → save CSV.
+
+        If output_csv already exists, books already present in it are skipped
+        and new records are appended.
+        """
         samples = self.collect_samples(output_dir)
         if not samples:
             print("[warn] No eval pages found in", output_dir)
             return pd.DataFrame()
 
+        existing_df = pd.DataFrame()
+        if Path(output_csv).exists():
+            existing_df = pd.read_csv(output_csv, encoding="utf-8")
+            already_done = set(existing_df["book"].dropna())
+            samples = [s for s in samples if s["book_name"] not in already_done]
+            if not samples:
+                print(f"[info] All books already in {output_csv}, nothing to do.")
+                return existing_df
+
         biblio_dataset = [
             [
-                {"role": "system", "content": BIBLIO_PROMPT.format(full_title=s["book_name"])},
-                {"role": "user",   "content": s["front_text"]},
+                {"role": "system", "content": BIBLIO_PROMPT},
+                {"role": "user",   "content": f"Book filename: {s['book_name']}\n\n{s['front_text']}"},
             ]
             for s in samples
         ]
@@ -104,6 +118,10 @@ class MetadataExtractor:
         df = pd.DataFrame(records)
         df.replace("null", None, inplace=True)
         df.dropna(how="all", inplace=True)
+
+        if not existing_df.empty:
+            df = pd.concat([existing_df, df], ignore_index=True)
+
         df.to_csv(output_csv, index=False, encoding="utf-8")
         print(f"Saved {len(df)} records to {output_csv}")
         return df

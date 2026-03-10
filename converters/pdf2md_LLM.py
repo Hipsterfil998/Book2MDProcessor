@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 import fitz
 from pdf2image import convert_from_path
-from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N, PDF_PROMPT
+from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N, PDF_PROMPT, ENABLE_PREFIX_CACHING
 from vllm import LLM, SamplingParams
 from utils import pil_to_data_url, sample_indices, suppress_worker_stderr
 
@@ -28,7 +28,8 @@ class PDFToMarkdownConverter:
         self.eval_n = eval_n
         logger.info("Loading %s...", model_id)
         with suppress_worker_stderr():
-            self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
+            self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True,
+                           enable_prefix_caching=ENABLE_PREFIX_CACHING)
 
     def convert(self, pdf_path: str | Path, output_dir: str | Path) -> Path:
         """Convert a PDF to Markdown. Returns path to the generated .md file.
