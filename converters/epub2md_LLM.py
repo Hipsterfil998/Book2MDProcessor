@@ -21,7 +21,7 @@ class EpubToMarkdownConverter:
         self.max_chunk_chars = max_chunk_chars
         self.max_new_tokens = max_new_tokens
         self.eval_n = eval_n
-        self.llm = LLM(model=model_id, dtype="bfloat16")
+        self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
 
     def _chunk(self, html: str) -> list[str]:
         """Split HTML into chunks by top-level block tags."""

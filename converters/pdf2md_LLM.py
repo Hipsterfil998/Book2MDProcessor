@@ -27,7 +27,7 @@ class PDFToMarkdownConverter:
         self.max_new_tokens = max_new_tokens
         self.eval_n = eval_n
         logger.info("Loading %s...", model_id)
-        self.llm = LLM(model=model_id, dtype="bfloat16")
+        self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
 
     def convert(self, pdf_path: str | Path, output_dir: str | Path) -> Path:
         """Convert a PDF to Markdown. Returns path to the generated .md file.
