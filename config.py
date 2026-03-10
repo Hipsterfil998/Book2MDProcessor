@@ -130,7 +130,7 @@ essays, sagas, fairy tales, crime stories, children's literature, drama, autobio
 literature, travelogues
 
 Output format (JSON):
-{{"genre": "Genre"}}
+{"genre": "Genre"}
 
 Rules:
 - Output only valid JSON, no additional text.\
