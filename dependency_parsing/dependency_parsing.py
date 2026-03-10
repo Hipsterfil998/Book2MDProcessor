@@ -1,6 +1,9 @@
 """Dependency parsing of Markdown files using Stanza.
 Markdown is converted to plain text before parsing.
 Supports Italian and German. Outputs CoNLL-U and/or JSON.
+
+Each book is processed as a single file. Language is detected automatically
+from the text content; only the matching Stanza pipeline is used.
 """
 
 import json
@@ -8,7 +11,11 @@ from pathlib import Path
 import markdown
 from bs4 import BeautifulSoup
 import stanza
+from langdetect import detect, LangDetectException
+from langdetect import DetectorFactory
 from config import PARSE_LANGS, PARSE_OUTPUT_FORMAT
+
+DetectorFactory.seed = 0  # make language detection reproducible
 
 
 class DependencyParser:
@@ -27,6 +34,18 @@ class DependencyParser:
         """Convert Markdown to plain text."""
         html = markdown.markdown(md_text)
         return BeautifulSoup(html, "html.parser").get_text(separator="\n")
+
+    def _detect_lang(self, text: str) -> str:
+        """Detect the language of text, returning a Stanza language code.
+
+        Uses the first 3000 characters for speed. Falls back to the first
+        configured language if detection fails or returns an unknown code.
+        """
+        try:
+            lang = detect(text[:3000])
+            return lang if lang in self.langs else self.langs[0]
+        except LangDetectException:
+            return self.langs[0]
 
     def _load_pipelines(self) -> None:
         """Download (if needed) and initialize one Stanza pipeline per language."""
@@ -85,17 +104,25 @@ class DependencyParser:
         return {"file": source_file, "lang": lang, "sentences": sentences}
 
     def run(self, input_dir: str, output_dir: str = None) -> None:
-        """Parse all .md files in input_dir and write CoNLL-U / JSON output."""
+        """Parse one .md file per book and write CoNLL-U / JSON output.
+
+        Expects the structure output/{stem}/{stem}.md produced by the
+        conversion pipeline. Language is detected automatically per book.
+        """
         input_path = Path(input_dir)
         output_path = Path(output_dir) if output_dir else input_path / "parsed_output"
         output_path.mkdir(parents=True, exist_ok=True)
 
-        md_files = sorted(input_path.glob("**/*.md"))
+        # Each book lives at output/{stem}/{stem}.md
+        md_files = sorted(
+            p for p in input_path.glob("*/*.md")
+            if p.stem == p.parent.name
+        )
         if not md_files:
-            print(f"No .md files found in {input_dir}")
+            print(f"No book .md files found in {input_dir}")
             return
 
-        print(f"Found {len(md_files)} markdown file(s)")
+        print(f"Found {len(md_files)} book(s)")
         print(f"Output: {output_path}\n")
 
         self._load_pipelines()
@@ -107,23 +134,23 @@ class DependencyParser:
                 print(f"  Skipping empty file: {md_file.name}")
                 continue
 
+            lang = self._detect_lang(text)
+            print(f"  Detected language: {lang}")
+            doc = self.pipelines[lang](text)
             stem = md_file.stem
-            for lang in self.langs:
-                doc = self.pipelines[lang](text)
-                suffix = f"_{lang}" if len(self.langs) > 1 else ""
 
-                if self.output_format in ("conllu", "both"):
-                    out = output_path / f"{stem}{suffix}.conllu"
-                    out.write_text(self._doc_to_conllu(doc), encoding="utf-8")
-                    print(f"  -> {out}")
+            if self.output_format in ("conllu", "both"):
+                out = output_path / f"{stem}.conllu"
+                out.write_text(self._doc_to_conllu(doc), encoding="utf-8")
+                print(f"  -> {out}")
 
-                if self.output_format in ("json", "both"):
-                    out = output_path / f"{stem}{suffix}.json"
-                    out.write_text(
-                        json.dumps(self._doc_to_json(doc, md_file.name, lang),
-                                   ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
-                    print(f"  -> {out}")
+            if self.output_format in ("json", "both"):
+                out = output_path / f"{stem}.json"
+                out.write_text(
+                    json.dumps(self._doc_to_json(doc, md_file.name, lang),
+                               ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                print(f"  -> {out}")
 
         print("\nDone.")

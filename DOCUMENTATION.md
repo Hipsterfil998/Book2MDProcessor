@@ -1,36 +1,36 @@
-# Documentazione della Codebase — Pipeline di Conversione Libri
+# Codebase Documentation: Book Conversion Pipeline
 
-## Panoramica
+## Overview
 
-La pipeline converte libri in formato PDF e EPUB in Markdown strutturato, ne estrae metadati bibliografici e di genere, valuta la qualità della conversione e produce annotazioni di dependency parsing. Il tutto è orchestrato da un'unica classe centrale (`ConverterPipeline`) e configurato da un singolo file `config.py`.
+The pipeline converts books in PDF and EPUB format into structured Markdown, extracts bibliographic and genre metadata, evaluates conversion quality, and produces dependency parsing annotations. Everything is orchestrated by a single central class (`ConverterPipeline`) and configured through a single `config.py` file.
 
 ---
 
-## Struttura del progetto
+## Project Structure
 
 ```
 .
-├── config.py                        # Configurazione centralizzata
-├── book_converter.py                # Orchestratore della pipeline
-├── utils.py                         # Utilità condivise
+├── config.py                        # Central configuration
+├── book_converter.py                # Pipeline orchestrator
+├── utils.py                         # Shared utilities
 │
 ├── converters/
-│   ├── text_extraction.py           # Conversione rule-based (senza LLM)
-│   ├── pdf2md_LLM.py                # PDF → Markdown via Qwen2.5-VL
-│   └── epub2md_LLM.py               # EPUB → Markdown via Qwen2.5
+│   ├── text_extraction.py           # Rule-based conversion (no LLM)
+│   ├── pdf2md_LLM.py                # PDF to Markdown via Qwen2.5-VL
+│   └── epub2md_LLM.py               # EPUB to Markdown via Qwen2.5
 │
 ├── metadata/
-│   └── metadata_extractor.py        # Estrazione autore/titolo/anno/genere
+│   └── metadata_extractor.py        # Author/title/year/genre extraction
 │
 ├── quality_evaluation/
-│   └── evaluator.py                 # LLM-as-judge per valutazione fedeltà
+│   └── evaluator.py                 # LLM-as-judge faithfulness scoring
 │
 ├── dependency_parsing/
-│   └── dependency_parsing.py        # Annotazione linguistica con Stanza
+│   └── dependency_parsing.py        # Linguistic annotation with Stanza
 │
-├── books/                           # Input: PDF e EPUB originali
+├── books/                           # Input: original PDF and EPUB files
 ├── output/                          # Output: Markdown + eval pages/chunks
-├── scores/                          # Score JSON per libro
+├── scores/                          # Per-book score JSON files
 │
 └── tests/
     ├── test_book_converter.py
@@ -40,208 +40,213 @@ La pipeline converte libri in formato PDF e EPUB in Markdown strutturato, ne est
 
 ---
 
-## Flusso della pipeline
+## Pipeline Flow
 
 ```
 books/                     output/{stem}/
-  *.pdf  ──► PDFConverter ──► {stem}.md
-                          ──► eval_pages/{i}.png + {i}.md
-                          ──► images/
-  *.epub ──► EPUBConverter ──► {stem}.md
-                           ──► eval_chunks/{i}.html + {i}.md
+  *.pdf  --> PDFConverter --> {stem}.md
+                          --> eval_pages/{i}.png + {i}.md
+                          --> images/
+  *.epub --> EPUBConverter --> {stem}.md
+                           --> eval_chunks/{i}.html + {i}.md
 
 output/                    scores/
-  **/eval_pages/ ──► QualityEvaluator ──► {book}_scores.json
+  **/eval_pages/  --> QualityEvaluator --> {book}_scores.json
   **/eval_chunks/
 
 output/                    metadata/metadata.csv
-  **/eval_pages/  ──► MetadataExtractor ──► author, title, year, genre
+  **/eval_pages/  --> MetadataExtractor --> author, title, year, genre
   **/eval_chunks/
 
 output/
-  **/*.md ──► DependencyParser ──► parsed_output/*.conllu / *.json
+  **/*.md --> DependencyParser --> parsed_output/*.conllu / *.json
 ```
 
 ---
 
-## `config.py` — Configurazione centralizzata
+## `config.py`: Central Configuration
 
-Tutto ciò che è parametrico (modelli, prompt, path, token limits) è definito qui. Non ci sono costanti magiche sparse nel codice.
+All parametric values (models, prompts, paths, token limits) are defined here. There are no magic constants scattered across the codebase.
 
-**Modelli usati:**
-- `PDF_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"` — modello vision-language per PDF (legge immagini di pagine)
-- `TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"` — modello testo per EPUB e metadati
+**Models used:**
+- `PDF_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"`: vision-language model for PDF (reads page images)
+- `TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"`: text-only model for EPUB and metadata
 
-**Scelta dei modelli:** Qwen2.5 è open-weight, disponibile su HuggingFace, con ottimo supporto per italiano e tedesco (lingue del corpus). La versione VL (Vision-Language) è necessaria per il PDF perché la pipeline rasterizza le pagine in PNG invece di usare l'estrazione testuale diretta — questo permette di preservare layout, formule e immagini.
+**Why Qwen2.5?** It is open-weight, available on HuggingFace, and has strong support for Italian and German (the corpus languages). The VL (Vision-Language) variant is required for PDF because the pipeline rasterizes pages to PNG rather than using direct text extraction, which preserves layout, formulas, and images.
 
-**`ENABLE_PREFIX_CACHING = True`:** abilita l'Automatic Prefix Caching di vLLM. Siccome tutti i libri in un batch condividono lo stesso system prompt, vLLM può cachearlo nei KV states e non ricalcolarlo per ogni richiesta. I prompt di sistema (`BIBLIO_PROMPT`, `GENRE_PROMPT`, `PDF_PROMPT`) sono costanti appositamente per massimizzare il cache hit rate.
+**`ENABLE_PREFIX_CACHING = True`:** enables vLLM Automatic Prefix Caching (APC). Since all books in a batch share the same system prompt, vLLM can cache it in the KV states and avoid recomputing it for every request. The system prompts (`BIBLIO_PROMPT`, `GENRE_PROMPT`, `PDF_PROMPT`) are kept as constants specifically to maximize the cache hit rate.
 
-**`_StderrFilter`:** filtra i messaggi di errore non-fatali di protobuf/grpc che vLLM emette su stderr — rumore che confonde i log di produzione.
+**`_StderrFilter`:** filters non-fatal protobuf/grpc error messages that vLLM emits on stderr, which would otherwise pollute production logs.
 
 ---
 
-## `utils.py` — Utilità condivise
+## `utils.py`: Shared Utilities
 
 ### `pil_to_data_url(img)`
-Converte un'immagine PIL in data URL base64 (`data:image/png;base64,...`). Usata per passare le pagine PNG al modello vision-language tramite vLLM che accetta il formato multimodale OpenAI-compatible.
+Encodes a PIL image as a base64 PNG data URL (`data:image/png;base64,...`). Used to pass PNG pages to the vision-language model through vLLM, which accepts the OpenAI-compatible multimodal format.
 
 ### `sample_indices(total, n=20)`
-Seleziona `n` indici di pagina per l'evaluation, con questa strategia ibrida:
+Selects `n` page indices for evaluation using a hybrid strategy:
 
-1. **Garantiti:** le prime `min(10, n)` pagine sono sempre incluse — perché contengono frontespizio, colophon e metadati
-2. **Stratificati:** i restanti slot vengono riempiti con campionamento casuale dal corpo (~75%) e dal fondo (~25%) del documento
+1. **Guaranteed:** the first `min(10, n)` pages are always included, because they contain the title page, colophon, and metadata.
+2. **Stratified:** the remaining slots are filled by random sampling from the body (~75%) and the back (~25%) of the document.
 
-**Perché stratificato e non uniforme?** Un campionamento puramente uniforme sovra-rappresenta il corpo e ignora le pagine finali (indici, colofoni). La proporzione 75/25 body/back empiricamente copre meglio la variabilità tipografica.
+**Why stratified instead of uniform?** Pure uniform sampling over-represents the body and ignores the final pages (indexes, colophons). The 75/25 body/back ratio empirically covers typographic variability better.
 
 ### `suppress_worker_stderr()`
-Context manager che intercetta fd 2 a livello OS (non solo `sys.stderr`) per filtrare il rumore di protobuf. I worker vLLM vengono forkati e ereditano fd 2 direttamente — un wrapper Python non sarebbe sufficiente.
+A context manager that intercepts file descriptor 2 at the OS level (not just `sys.stderr`) to filter protobuf noise. vLLM worker processes are forked and inherit fd 2 directly, so a Python-level wrapper would not be sufficient.
 
 ---
 
-## `book_converter.py` — Orchestratore
+## `book_converter.py`: Pipeline Orchestrator
 
-`ConverterPipeline` espone tre metodi di conversione:
+`ConverterPipeline` exposes three conversion methods:
 
-| Metodo | Converter usato | Quando usarlo |
-|--------|----------------|---------------|
-| `run_simple()` | `DocumentProcessor` (rule-based) | Bozza rapida, nessun GPU |
-| `run_pdf_llm()` | `PDFToMarkdownConverter` | PDF con layout complesso |
-| `run_epub_llm()` | `EpubToMarkdownConverter` | EPUB |
+| Method | Converter used | When to use |
+|--------|---------------|-------------|
+| `run_simple()` | `DocumentProcessor` (rule-based) | Quick draft, no GPU needed |
+| `run_pdf_llm()` | `PDFToMarkdownConverter` | PDFs with complex layout |
+| `run_epub_llm()` | `EpubToMarkdownConverter` | EPUB files |
 
-**Resume/idempotenza:** `_already_converted(stem)` controlla se `output/{stem}/{stem}.md` esiste. Se sì, il libro viene saltato. Questo permette di interrompere e riprendere la pipeline senza riprocessare libri già convertiti — fondamentale quando si lavora con corpus di centinaia di libri e l'inferenza LLM è costosa.
-
----
-
-## `converters/text_extraction.py` — Conversione rule-based
-
-`DocumentProcessor` converte senza LLM usando regole deterministiche.
-
-**PDF:** usa PyMuPDF (`fitz`) per estrarre il testo in modalità `rawdict`, che espone font size e flags per ogni span. Le regole di mappatura sono:
-- font size ≥ 22 → `# H1`, ≥ 18 → `## H2`, ≥ 14 → `### H3`, ≥ 12 + bold → `#### H4`
-- flags & 16 = bold → `**testo**`, flags & 2 = italic → `*testo*`
-- font size < 9 e inizia con `\d*†‡§` → nota a piè di pagina `> [^fn]: ...`
-- match `^(figura|fig|tabella|tab)` → didascalia `*testo*`
-- immagini estratte in `images/` e inserite come `![caption](images/filename)`
-
-**EPUB:** usa `ebooklib` per estrarre i capitoli HTML e un walker ricorsivo HTML→Markdown che gestisce: intestazioni, bold/italic, code block, liste ordinate/non ordinate, tabelle GFM, footnote (`epub:type="footnote"`), figure con didascalia, blockquote, callout box (riconosciuti da CSS class: `callout|note|warning|tip`).
-
-**Limitazione:** questo approccio rule-based fallisce con PDF scansionati, formule LaTeX complesse e layout a colonne multiple — da qui la necessità dei converter LLM.
+**Resume and idempotency:** `_already_converted(stem)` checks whether `output/{stem}/{stem}.md` already exists. If it does, the book is skipped. This allows the pipeline to be interrupted and resumed without reprocessing already-converted books, which is essential when working with a corpus of hundreds of books and LLM inference is expensive.
 
 ---
 
-## `converters/pdf2md_LLM.py` — PDF → Markdown via LLM
+## `converters/text_extraction.py`: Rule-Based Conversion
 
-`PDFToMarkdownConverter` usa Qwen2.5-VL (vision-language):
+`DocumentProcessor` converts documents without an LLM using deterministic rules.
 
-1. Rasterizza ogni pagina PDF in PNG a `PDF_DPI=300` dpi
-2. Codifica ogni PNG come data URL base64
-3. Costruisce un batch di messaggi multimodali: `[{"type": "image_url", ...}, {"type": "text", "text": PDF_PROMPT}]`
-4. Inferenza batch con `LLM.chat()` — tutte le pagine del libro in un'unica chiamata
-5. Salva il Markdown risultante
-6. Salva le pagine campionate in `eval_pages/{i}.png` + `eval_pages/{i}.md` per evaluation e metadati
+**PDF:** uses PyMuPDF (`fitz`) to extract text in `rawdict` mode, which exposes font size and flags for every span. The mapping rules are:
+- font size >= 22: `# H1`, >= 18: `## H2`, >= 14: `### H3`, >= 12 + bold: `#### H4`
+- flags & 16 = bold: `**text**`, flags & 2 = italic: `*text*`
+- font size < 9 and starts with `\d*†‡§`: footnote `> [^fn]: ...`
+- matches `^(figura|fig|tabella|tab)`: caption `*text*`
+- images extracted to `images/` and inserted as `![caption](images/filename)`
 
-**Perché rasterizzare invece di estrarre testo?** L'estrazione testuale diretta perde la struttura visiva (colonne, tabelle, equazioni). Con la rasterizzazione, il modello vede esattamente la pagina come un lettore umano.
+**EPUB:** uses `ebooklib` to extract HTML chapters and a recursive HTML-to-Markdown walker that handles: headings, bold/italic, code blocks, ordered/unordered lists, GFM tables, footnotes (`epub:type="footnote"`), figures with captions, blockquotes, and callout boxes (detected by CSS class: `callout|note|warning|tip`).
 
-**Batching:** tutta la pipeline beneficia del batching nativo di vLLM che esegue inferenza parallela su tutte le pagine con un unico forward pass (continuous batching). Questo è molto più efficiente che elaborare le pagine una per volta.
-
----
-
-## `converters/epub2md_LLM.py` — EPUB → Markdown via LLM
-
-`EpubToMarkdownConverter` usa Qwen2.5 (testo puro):
-
-1. Converte l'EPUB in HTML con `pypandoc`
-2. Estrae le immagini in `images/` e riscrive i `src` delle `<img>` con i path locali
-3. Divide l'HTML in chunk da max `EPUB_MAX_CHUNK_CHARS=8000` caratteri per top-level block tag (`section`, `article`, `div`)
-4. Inferenza batch di tutti i chunk con il prompt `EPUB_PROMPT`
-5. Join dei chunk con `\n\n---\n\n`
-6. Salva chunk campionati in `eval_chunks/{i}.html` + `eval_chunks/{i}.md`
-
-**Perché chunking?** I modelli hanno una context window limitata. Spezzare per top-level tag garantisce che ogni chunk sia semanticamente coeso (un blocco HTML completo, non spezzato a metà frase).
-
-**Differenza da `run_simple`:** il LLM gestisce meglio elementi complessi come tabelle irregolari, liste annidate e footnote con riferimenti incrociati.
+**Limitation:** this rule-based approach fails on scanned PDFs, complex LaTeX formulas, and multi-column layouts, which motivates the LLM-based converters.
 
 ---
 
-## `metadata/metadata_extractor.py` — Estrazione metadati
+## `converters/pdf2md_LLM.py`: PDF to Markdown via LLM
 
-`MetadataExtractor` estrae 5 campi: autore, titolo, anno, genere — tutto con zero-shot prompting sullo stesso modello testuale.
+`PDFToMarkdownConverter` uses Qwen2.5-VL (vision-language):
+
+1. Rasterizes each PDF page to PNG at `PDF_DPI=300` dpi
+2. Encodes each PNG as a base64 data URL
+3. Builds a batch of multimodal messages: `[{"type": "image_url", ...}, {"type": "text", "text": PDF_PROMPT}]`
+4. Runs batch inference with `LLM.chat()`, processing all pages of a book in a single call
+5. Saves the resulting Markdown
+6. Saves sampled pages to `eval_pages/{i}.png` and `eval_pages/{i}.md` for quality evaluation and metadata extraction
+
+**Why rasterize instead of extracting text?** Direct text extraction loses visual structure (columns, tables, equations). Rasterization lets the model see the page exactly as a human reader would.
+
+**Batching:** the whole pipeline benefits from vLLM's native batching, which runs parallel inference on all pages in a single forward pass (continuous batching). This is far more efficient than processing pages one at a time.
+
+---
+
+## `converters/epub2md_LLM.py`: EPUB to Markdown via LLM
+
+`EpubToMarkdownConverter` uses Qwen2.5 (text-only):
+
+1. Converts the EPUB to HTML using `pypandoc`
+2. Extracts images to `images/` and rewrites `<img>` `src` attributes to local paths
+3. Splits the HTML into chunks of at most `EPUB_MAX_CHUNK_CHARS=8000` characters, splitting at top-level block tags (`section`, `article`, `div`)
+4. Runs batch inference on all chunks with `EPUB_PROMPT`
+5. Joins chunks with `\n\n---\n\n`
+6. Saves sampled chunks to `eval_chunks/{i}.html` and `eval_chunks/{i}.md`
+
+**Why chunking?** Models have a limited context window. Splitting at top-level tags ensures each chunk is semantically coherent (a complete HTML block, never cut mid-sentence).
+
+**Difference from `run_simple`:** the LLM handles complex elements better, such as irregular tables, nested lists, and footnotes with cross-references.
+
+---
+
+## `metadata/metadata_extractor.py`: Metadata Extraction
+
+`MetadataExtractor` extracts five fields: author, title, year, and genre, using zero-shot prompting on the same text model.
 
 ### `collect_samples(output_dir)`
-Per ogni libro cerca `eval_pages/` (preferito) o `eval_chunks/` e seleziona:
-- `front_files = guaranteed[:5]` — pagine 0-4: frontespizio, colophon, prefazione → contengono autore/titolo/anno
-- `body_files = guaranteed[5:][-3:]` — pagine 7-9 delle prime 10: superato il fronte materia ma ancora presto nel libro → campione rappresentativo per il genere
+For each book, it looks for `eval_pages/` (preferred) or `eval_chunks/` and selects:
+- `front_files = guaranteed[:5]`: pages 0-4 (title page, colophon, preface) which contain author, title, and year
+- `body_files = guaranteed[5:][-3:]`: pages 7-9 of the first 10, which are past the front matter but still early in the book, giving a representative sample for genre classification
 
-**Perché queste pagine?** Le prime 5 pagine di un libro contengono quasi sempre le informazioni bibliografiche. Le pagine 7-9 sono post-fronte-materia e rappresentano il tono/stile del testo senza essere ancora troppo specialistiche. Essendo tutte nell'insieme garantito dei primi 10, sono sempre disponibili indipendentemente dalla lunghezza del libro.
+**Why these pages?** The first 5 pages of a book almost always contain bibliographic information. Pages 7-9 are past the front matter and represent the tone and style of the text without being overly specialized. Since all of them fall within the guaranteed first-10 set, they are always available regardless of book length.
 
 ### `run(output_dir, output_csv)`
-Esegue due inferenze batch separate:
-1. `BIBLIO_PROMPT` + `"Book filename: {name}\n\n{front_text}"` → JSON `{author, title, year}`
-2. `GENRE_PROMPT` + `body_text` → JSON `{genre}`
+Runs two separate batch inference calls:
+1. `BIBLIO_PROMPT` + `"Book filename: {name}\n\n{front_text}"` produces JSON `{author, title, year}`
+2. `GENRE_PROMPT` + `body_text` produces JSON `{genre}`
 
-**Resume CSV:** se `output_csv` esiste già, carica i record esistenti, filtra i libri già processati e appende solo i nuovi. Se non c'è nulla di nuovo, ritorna senza riscrivere il file (preserva `mtime`).
+**CSV resume:** if `output_csv` already exists, the existing records are loaded, already-processed books are filtered out, and only new records are appended. If there is nothing new to process, the method returns early without rewriting the file (preserving `mtime`).
 
-**Perché due batch separati?** I due prompt sono molto diversi (biblio vs genere) e richiedono testi di input diversi. Tenerli separati massimizza il prefix cache hit rate: all'interno di ogni batch, tutti i messaggi condividono lo stesso system prompt costante.
+**Why two separate batches?** The two prompts are very different (bibliographic vs genre) and require different input texts. Keeping them separate maximizes the prefix cache hit rate: within each batch, all messages share the same constant system prompt.
 
-**`_parse_json(raw)`:** gestisce output imperfetti del modello. Prima tenta `json.loads()` diretto. Se fallisce, tenta il recovery: prende il testo prima di una riga vuota (il modello a volte aggiunge testo dopo il JSON) e aggiunge `}` mancante se necessario.
+**`_parse_json(raw)`:** handles imperfect model output. It first attempts a direct `json.loads()`. On failure, it attempts recovery by taking the text before the first blank line (models sometimes add text after the JSON) and appending a missing `}` if needed.
 
 ---
 
-## `quality_evaluation/evaluator.py` — Valutazione qualità
+## `quality_evaluation/evaluator.py`: Quality Evaluation
 
-`QualityEvaluator` implementa il pattern **LLM-as-judge**: usa un modello linguistico per valutare l'output di un altro.
+`QualityEvaluator` implements the **LLM-as-judge** pattern: a language model evaluates the output of another model.
 
 ### `evaluate_pdf(eval_pages_dir, scores_dir)`
-Per ogni coppia `{i}.png` + `{i}.md`:
-- Passa l'immagine originale + il Markdown generato al judge
-- Il judge valuta la fedeltà su 3 dimensioni: `text` (1-5), `structure` (1-5), `math` (1-5)
-- Output: JSON con media e score per pagina
+For each `{i}.png` and `{i}.md` pair:
+- Passes the original page image and the generated Markdown to the judge model
+- The judge scores faithfulness on three dimensions: `text` (1-5), `structure` (1-5), `math` (1-5)
+- Output: JSON with per-page scores and averages
 
 ### `evaluate_epub(eval_chunks_dir, scores_dir)`
-Per ogni coppia `{i}.html` + `{i}.md`:
-- Valuta fedeltà su 2 dimensioni: `text` e `structure` (senza `math` perché l'HTML non ha formule)
+For each `{i}.html` and `{i}.md` pair:
+- Scores faithfulness on two dimensions: `text` and `structure` (no `math` since HTML does not contain formulas)
 
-**Vantaggio del design eval-per-book:** la valutazione non richiede accesso ai file originali — usa solo le coppie sorgente/output già salvate durante la conversione. Questo disaccoppia la fase di evaluation dalla conversione stessa.
+**Advantage of the eval-per-book design:** evaluation does not require access to the original files. It only uses the source/output pairs saved during conversion, which decouples the evaluation stage from the conversion stage.
 
-**`PDF_JUDGE_PROMPT`:** istruisce il giudice a valutare solo la *fedeltà* (ogni elemento del Markdown è presente nell'originale?) e non la qualità Markdown in generale — evita bias verso stili di formattazione.
-
----
-
-## `dependency_parsing/dependency_parsing.py` — Annotazione linguistica
-
-`DependencyParser` applica analisi delle dipendenze morfosintattiche ai file Markdown convertiti.
-
-**Flusso:**
-1. Markdown → plain text (via `markdown` + BeautifulSoup per rimuovere il markup)
-2. Stanza pipeline per lingua (`it`, `de`): tokenize + MWT + POS + lemma + depparse
-3. Output in CoNLL-U (standard NLP) e/o JSON
-
-**Lazy loading:** le pipeline Stanza vengono caricate solo al primo `run()`, non nell'`__init__`. Se il modello non è già scaricato, lo scarica automaticamente.
-
-**Multi-lingua:** la stessa pipeline elabora tutti i file con tutte le lingue configurate. Il suffisso `_{lang}` viene aggiunto al nome del file di output solo se ci sono più lingue attive (per non rompere i path quando si usa una sola lingua).
-
-**Uso nel progetto:** il parsing è l'ultimo stadio della pipeline — produce i dati linguistici strutturati (CoNLL-U) che possono essere usati per analisi di corpus, addestramento di modelli NLP o ricerca linguistica sul corpus di testi in italiano e tedesco.
+**`PDF_JUDGE_PROMPT`:** instructs the judge to evaluate only *faithfulness* (is every element in the Markdown traceable to the original?) rather than general Markdown quality, avoiding bias toward specific formatting styles.
 
 ---
 
-## Decisioni architetturali principali
+## `dependency_parsing/dependency_parsing.py`: Linguistic Annotation
 
-| Decisione | Alternativa scartata | Motivazione |
-|-----------|---------------------|-------------|
-| Batching vLLM per libro intero | Pagine una ad una | Throughput molto superiore grazie al continuous batching |
-| Rasterizzazione PDF in PNG | Estrazione testuale PyMuPDF | Preserva layout visivo, formule, tabelle complesse |
-| Chunking EPUB per tag HTML | Finestre di testo fisse | Chunk semanticamente coesi, nessun testo spezzato |
-| Prompt di sistema costanti | Prompt con variabili inline | Massimizza prefix cache hit rate con APC vLLM |
-| Eval pages salvate durante conversione | Rileggere i file originali per eval | Disaccoppia le fasi; eval funziona senza i file originali |
-| Resume basato su esistenza del `.md` | Flag in database/JSON | Zero overhead, funziona anche dopo crash o interruzioni |
-| Due LLM separati (VL + testo) | Un solo modello multimodale | Ottimizzazione: il modello testo è più veloce e usa meno VRAM per EPUB/metadati |
+`DependencyParser` applies morphosyntactic dependency analysis to the main Markdown file of each converted book.
+
+**Flow:**
+1. `run()` finds one `.md` file per book by matching `output/{stem}/{stem}.md` (the pattern `p.stem == p.parent.name`), ignoring eval pages and eval chunks
+2. Markdown is converted to plain text (using the `markdown` library and BeautifulSoup to strip markup)
+3. Language is detected automatically from the first 3000 characters of the text using `langdetect`; if the detected language is not among the configured ones, it falls back to the first configured language
+4. Only the matching Stanza pipeline runs: tokenize + MWT + POS + lemma + depparse
+5. Output is written as a single `{stem}.conllu` and/or `{stem}.json` file, without any language suffix
+
+**Why automatic language detection?** Books in the corpus are either Italian or German. Running both pipelines on every book would double the computation and produce redundant output. Detecting the language per book and routing to the correct pipeline keeps the output clean: one file per book, annotated in the right language.
+
+**`DetectorFactory.seed = 0`:** `langdetect` is non-deterministic by default (it uses a random seed internally). Setting a fixed seed makes language detection reproducible across runs.
+
+**Lazy loading:** Stanza pipelines are loaded only on the first `run()` call, not in `__init__`. All configured languages are loaded upfront so the correct pipeline is ready regardless of the detection result. If a model has not been downloaded yet, it is downloaded automatically.
+
+**Role in the project:** parsing is the final stage of the pipeline. It produces structured linguistic data (CoNLL-U) that can be used for corpus analysis, NLP model training, or linguistic research on the Italian and German text corpus.
 
 ---
 
-## Test
+## Key Architectural Decisions
 
-I test usano `tmp_path` di pytest per l'isolamento completo (nessun file di stato globale). I modelli LLM sono sostituiti da stub (`FakeLLM`) che restituiscono JSON fissi, quindi i test girano senza GPU.
+| Decision | Discarded alternative | Rationale |
+|----------|-----------------------|-----------|
+| vLLM batching for the entire book | Page-by-page inference | Much higher throughput via continuous batching |
+| PDF rasterization to PNG | PyMuPDF text extraction | Preserves visual layout, formulas, and complex tables |
+| EPUB chunking by HTML tag | Fixed-size text windows | Semantically coherent chunks, no text split mid-sentence |
+| Constant system prompts | Prompts with inline variables | Maximizes prefix cache hit rate with vLLM APC |
+| Eval pages saved during conversion | Re-reading original files for eval | Decouples stages; evaluation works without the originals |
+| Resume based on `.md` file existence | Flags in a database or JSON | Zero overhead; survives crashes and interruptions |
+| Two separate LLMs (VL + text) | A single multimodal model | The text model is faster and uses less VRAM for EPUB and metadata |
+| Automatic language detection per book | Running all pipelines on every book | Avoids redundant computation; produces one correctly-annotated file per book |
 
-- **`test_book_converter.py`:** testa il resume (`_already_converted`) e il corretto skip per tutti e tre i metodi run
-- **`test_metadata.py`:** testa `_parse_json` (parsing robusto), `collect_samples` (selezione pagine) e `run` (logica CSV append/skip)
-- **`test_utils.py`:** testa `sample_indices` (garanzie sui primi 10 indici, stratificazione) e `pil_to_data_url` (round-trip PNG)
+---
+
+## Tests
+
+Tests use pytest's `tmp_path` fixture for complete isolation (no global state). LLM models are replaced by stubs (`FakeLLM`) that return fixed JSON responses, so all tests run without a GPU.
+
+- **`test_book_converter.py`:** tests the resume logic (`_already_converted`) and correct skipping across all three run methods
+- **`test_metadata.py`:** tests `_parse_json` (robust parsing), `collect_samples` (page selection logic), and `run` (CSV append/skip behavior)
+- **`test_utils.py`:** tests `sample_indices` (first-10 guarantee, stratification) and `pil_to_data_url` (PNG round-trip)

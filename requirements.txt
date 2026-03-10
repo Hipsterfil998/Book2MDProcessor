@@ -1,5 +1,6 @@
 tqdm
 stanza
+langdetect
 ebooklib
 pymupdf
 vllm>=0.8.0

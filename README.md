@@ -191,11 +191,12 @@ parser = DependencyParser(langs=["it", "de"], output_format="conllu")
 parser.run(input_dir="output/", output_dir="parsed/")
 ```
 
-Runs full NLP annotation on all `.md` files in the output folder:
+Runs full NLP annotation on the main Markdown file of each book (`output/{stem}/{stem}.md`):
 - tokenization, POS tagging, lemmatization, dependency parsing (via Stanza)
 - Markdown is stripped to plain text before parsing
-- Supports Italian (`it`) and German (`de`) simultaneously
+- Language is detected automatically per book using `langdetect`; only the matching pipeline is used
 - Output formats: `conllu` (CoNLL-U), `json`, or `both`
+- One output file per book: `{stem}.conllu` / `{stem}.json` (no language suffix)
 
 Each token in the output carries: `id`, `text`, `lemma`, `upos`, `xpos`, `feats`, `head`, `deprel`.
 
