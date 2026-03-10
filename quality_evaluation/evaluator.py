@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 from config import PDF_JUDGE_PROMPT, EPUB_JUDGE_PROMPT  # sets VLLM_USE_V1 before vllm import
 from vllm import LLM, SamplingParams
-from utils import pil_to_data_url
+from utils import pil_to_data_url, suppress_worker_stderr
 
 
 class QualityEvaluator:
@@ -26,7 +26,8 @@ class QualityEvaluator:
     """
 
     def __init__(self, judge_model_id: str):
-        self.llm = LLM(model=judge_model_id, dtype="bfloat16")
+        with suppress_worker_stderr():
+            self.llm = LLM(model=judge_model_id, dtype="bfloat16")
 
     def evaluate_pdf(
         self,

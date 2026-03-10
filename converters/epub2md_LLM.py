@@ -7,7 +7,7 @@ from ebooklib import epub
 from ebooklib.epub import EpubImage
 from config import TEXT_MODEL_ID, EPUB_MAX_CHUNK_CHARS, EPUB_MAX_NEW_TOKENS, EVAL_N, EPUB_PROMPT  # sets VLLM_USE_V1 before vllm import
 from vllm import LLM, SamplingParams
-from utils import sample_indices
+from utils import sample_indices, suppress_worker_stderr
 
 
 class EpubToMarkdownConverter:
@@ -21,7 +21,8 @@ class EpubToMarkdownConverter:
         self.max_chunk_chars = max_chunk_chars
         self.max_new_tokens = max_new_tokens
         self.eval_n = eval_n
-        self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
+        with suppress_worker_stderr():
+            self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
 
     def _chunk(self, html: str) -> list[str]:
         """Split HTML into chunks by top-level block tags."""

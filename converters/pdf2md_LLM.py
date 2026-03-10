@@ -8,7 +8,7 @@ import fitz
 from pdf2image import convert_from_path
 from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N, PDF_PROMPT  # sets VLLM_USE_V1 before vllm import
 from vllm import LLM, SamplingParams
-from utils import pil_to_data_url, sample_indices
+from utils import pil_to_data_url, sample_indices, suppress_worker_stderr
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ class PDFToMarkdownConverter:
         self.max_new_tokens = max_new_tokens
         self.eval_n = eval_n
         logger.info("Loading %s...", model_id)
-        self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
+        with suppress_worker_stderr():
+            self.llm = LLM(model=model_id, dtype="bfloat16", enforce_eager=True)
 
     def convert(self, pdf_path: str | Path, output_dir: str | Path) -> Path:
         """Convert a PDF to Markdown. Returns path to the generated .md file.
@@ -106,7 +107,7 @@ class PDFToMarkdownConverter:
                 if xref in content_xrefs and xref not in xref_to_fname:
                     img_counter += 1
                     pix = fitz.Pixmap(doc, xref)
-                    if pix.n > 4:  # CMYK → RGB
+                    if pix.colorspace and pix.colorspace.n > 3:  # CMYK or similar → RGB
                         pix = fitz.Pixmap(fitz.csRGB, pix)
                     fname = f"img{img_counter}.png"
                     pix.save(str(img_dir / fname))

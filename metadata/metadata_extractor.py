@@ -11,6 +11,7 @@ import pandas as pd
 from pathlib import Path
 from config import TEXT_MODEL_ID, METADATA_MAX_NEW_TOKENS, BIBLIO_PROMPT, GENRE_PROMPT  # sets VLLM_USE_V1 before vllm import
 from vllm import LLM, SamplingParams
+from utils import suppress_worker_stderr
 
 
 class MetadataExtractor:
@@ -28,7 +29,8 @@ class MetadataExtractor:
         max_new_tokens: int = METADATA_MAX_NEW_TOKENS,
     ):
         self.max_new_tokens = max_new_tokens
-        self.llm = LLM(model=model_id, dtype="bfloat16")
+        with suppress_worker_stderr():
+            self.llm = LLM(model=model_id, dtype="bfloat16")
 
     def collect_samples(self, output_dir: str) -> list[dict]:
         """
