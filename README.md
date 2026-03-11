@@ -19,7 +19,7 @@ Pipeline for converting Italian and German books (PDF/EPUB) to structured Markdo
 ├── metadata/
 │   └── metadata_extractor.py      # Author/title/year/genre extraction (with CSV resume)
 ├── quality_evaluation/
-│   └── evaluator.py               # LLM-as-judge faithfulness evaluation
+│   └── evaluator.py               # Reference-based quality evaluation (NED, BLEU, MarkdownStructureF1)
 ├── dependency_parsing/
 │   └── dependency_parsing.py      # Stanza-based dependency parsing
 ├── tests/                         # pytest test suite
@@ -34,8 +34,8 @@ All parameters and prompts are centralised in `config.py`. Edit this file before
 
 ```python
 # Models
-PDF_MODEL_ID  = "Qwen/Qwen2.5-VL-7B-Instruct"  # vision-language (PDF -> MD, PDF eval)
-TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB -> MD, metadata)
+PDF_MODEL_ID  = "Qwen/Qwen2.5-VL-7B-Instruct"  # vision-language (PDF -> Markdown)
+TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB -> Markdown, metadata)
 
 # Generation
 PDF_MAX_NEW_TOKENS      = 4096
@@ -51,7 +51,7 @@ OUTPUT_DIR   = "output/"
 SCORES_DIR   = "scores/"
 METADATA_CSV = "metadata/metadata.csv"
 
-# Prompts (PDF_PROMPT, EPUB_PROMPT, PDF_JUDGE_PROMPT, EPUB_JUDGE_PROMPT, BIBLIO_PROMPT, GENRE_PROMPT)
+# Prompts (PDF_PROMPT, EPUB_PROMPT, BIBLIO_PROMPT, GENRE_PROMPT)
 ```
 
 Every constructor still accepts the same parameters explicitly, so individual overrides remain possible without editing the config.
@@ -73,7 +73,7 @@ Every constructor still accepts the same parameters explicitly, so individual ov
 !pip install -r requirements.txt
 ```
 
-### 3. GPU requirements
+### 3. GPU requirements (conversion only)
 
 | Model | VRAM (bfloat16) | Recommended |
 |---|---|---|
@@ -81,6 +81,8 @@ Every constructor still accepts the same parameters explicitly, so individual ov
 | Qwen2.5-7B-Instruct (EPUB + metadata) | ~14 GB | T4 (tight) |
 
 Both models are never loaded simultaneously; the pipeline loads one at a time.
+
+Quality evaluation does **not** require a GPU or any LLM. NED, BLEU, and MarkdownStructureF1 run on CPU. BERTScore (optional) also runs on CPU but benefits from a GPU for speed.
 
 ---
 
@@ -127,27 +129,45 @@ Genres: `Journalistic`, `Functional/Gebrauchstexte`, `Factual/Non fiction/Wissen
 
 ### Evaluate conversion quality
 
+Evaluation uses reference-based metrics from [Page2MDBench](https://github.com/Hipsterfil998/Page2MDBench). No LLM or GPU required.
+
+First, clone Page2MDBench into the project root:
+
+```bash
+git clone https://github.com/Hipsterfil998/Page2MDBench.git
+pip install rapidfuzz sacrebleu mistune bert-score
+```
+
+Then run:
+
 ```python
 from quality_evaluation.evaluator import QualityEvaluator
 
-# Evaluate all books in output/ automatically
-evaluator = QualityEvaluator(
-    pdf_judge_model_id="Qwen/Qwen2.5-VL-7B-Instruct",  # default
-    epub_judge_model_id="Qwen/Qwen2.5-7B-Instruct",     # default
-)
+evaluator = QualityEvaluator(use_bertscore=False)  # set True to also compute BERTScore
 evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")
 ```
 
-`evaluate_all` detects the conversion type of each book automatically (`eval_pages/` = PDF, `eval_chunks/` = EPUB) and calls the right method. All PDFs are evaluated first, then all EPUBs, so the two models are never in VRAM simultaneously.
+`evaluate_all` detects the conversion type of each book automatically (`eval_pages/` = PDF, `eval_chunks/` = EPUB) and calls the right method.
 
-Individual books can still be evaluated directly:
+Individual books can also be evaluated directly:
 
 ```python
 evaluator.evaluate_pdf(eval_pages_dir="output/book_name/eval_pages/", scores_dir="scores/")
 evaluator.evaluate_epub(eval_chunks_dir="output/book_name/eval_chunks/", scores_dir="scores/")
 ```
 
-The judge rates **faithfulness** (not general quality): PDF uses a vision-language model to compare page image vs Markdown; EPUB uses a text model to compare HTML chunk vs Markdown. Both models are loaded lazily on first use.
+**Metrics:**
+
+| Metric | Direction | Description |
+|---|---|---|
+| NED | lower is better | Normalised Edit Distance |
+| BLEU | higher is better | n-gram precision |
+| MarkdownStructureF1 | higher is better | Structural element overlap |
+| BERTScore | higher is better | Semantic similarity (optional, slow on CPU) |
+
+NED, BLEU, and MarkdownStructureF1 run on CPU with no GPU needed. BERTScore loads a BERT model and runs on CPU too, but is significantly slower; a GPU speeds it up considerably.
+
+**References:** PDF evaluation compares `{i}.ref.md` (rule-based Markdown saved during conversion) against `{i}.md` (LLM output). EPUB evaluation converts `{i}.html` to Markdown via DocumentProcessor and compares it against `{i}.md`.
 
 ---
 
@@ -162,9 +182,11 @@ output/
     ├── images/               # embedded images extracted from the source
     ├── eval_pages/           # PDF only: sampled page pairs for evaluation
     │   ├── 0.png             #   original page image
-    │   ├── 0.md              #   corresponding generated Markdown
+    │   ├── 0.md              #   LLM-generated Markdown
+    │   ├── 0.ref.md          #   rule-based reference Markdown (used by evaluator)
     │   ├── 12.png
     │   ├── 12.md
+    │   ├── 12.ref.md
     │   └── ...
     └── eval_chunks/          # EPUB only: sampled chunk pairs for evaluation
         ├── 0.html            #   original HTML chunk
@@ -176,7 +198,7 @@ Evaluation scores are saved separately:
 
 ```
 scores/
-└── book_name_scores.json     # {"average": {"text": 4.2, "structure": 3.8, ...}, "pages": {...}}
+└── book_name_scores.json     # {"average": {"ned": 0.12, "bleu": 68.4, "structure_f1": 0.91}, "pages": {...}}
 ```
 
 Metadata output:

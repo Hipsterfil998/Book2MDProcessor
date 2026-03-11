@@ -287,7 +287,7 @@
 │   └── metadata_extractor.py        # Author / title / year / genre extraction
 │
 ├── quality_evaluation/
-│   └── evaluator.py                 # LLM-as-judge faithfulness scoring
+│   └── evaluator.py                 # Reference-based quality evaluation (NED, BLEU, MarkdownStructureF1)
 │
 ├── dependency_parsing/
 │   └── dependency_parsing.py        # Linguistic annotation with Stanza
@@ -521,45 +521,87 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
   <!-- evaluator.py -->
   <h2 id="evaluator"><code>quality_evaluation/evaluator.py</code>: Quality Evaluation</h2>
   <p>
-    <code>QualityEvaluator</code> implements the <strong>LLM-as-judge</strong> pattern:
-    a language model evaluates the output of another model.
+    <code>QualityEvaluator</code> uses <strong>reference-based metrics</strong> from
+    <a href="https://github.com/Hipsterfil998/Page2MDBench" target="_blank">Page2MDBench</a>
+    to measure conversion quality. No LLM or GPU is required for evaluation.
   </p>
-  <p>
-    Two separate models are used, loaded <strong>lazily</strong> so only the required one occupies VRAM at any given time:
-  </p>
-  <ul>
-    <li><strong>PDF judge</strong>: vision-language model (<code>Qwen2.5-VL-7B-Instruct</code>) — compares page image vs generated Markdown</li>
-    <li><strong>EPUB judge</strong>: text-only model (<code>Qwen2.5-7B-Instruct</code>) — compares HTML chunk vs generated Markdown; no vision needed</li>
-  </ul>
 
-  <h3>evaluate_pdf()</h3>
-  <p>
-    For each <code>{i}.png</code> + <code>{i}.md</code> pair, passes the original page image
-    and generated Markdown to the judge, which scores faithfulness on three dimensions:
-  </p>
-  <ul>
-    <li><strong>text</strong> (1–5): all text from the source is present and nothing is invented</li>
-    <li><strong>structure</strong> (1–5): headings, tables, lists match the visual layout</li>
-    <li><strong>math</strong> (1–5): formulas match the source (5 if no math is present)</li>
-  </ul>
+  <h3>Metrics</h3>
+  <table>
+    <thead>
+      <tr><th>Metric</th><th>Direction</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>NED</strong></td><td>lower is better</td><td>Normalised Edit Distance between reference and prediction</td></tr>
+      <tr><td><strong>BLEU</strong></td><td>higher is better</td><td>n-gram precision score</td></tr>
+      <tr><td><strong>MarkdownStructureF1</strong></td><td>higher is better</td><td>F1 overlap of structural Markdown elements (headings, lists, tables)</td></tr>
+      <tr><td><strong>BERTScore</strong></td><td>higher is better</td><td>Semantic similarity via BERT embeddings (optional; CPU-compatible but slow without GPU)</td></tr>
+    </tbody>
+  </table>
 
-  <h3>evaluate_epub()</h3>
+  <h3>References</h3>
+  <p>Each metric compares a <em>reference</em> against the LLM-generated Markdown:</p>
+  <ul>
+    <li>
+      <strong>PDF</strong>: reference is <code>{i}.ref.md</code>, a rule-based Markdown extraction
+      produced by <code>DocumentProcessor._extract_pdf_page_blocks()</code> and saved during conversion
+      (while the original PDF is still available). Stored alongside the eval page images in
+      <code>eval_pages/</code>.
+    </li>
+    <li>
+      <strong>EPUB</strong>: reference is obtained at evaluation time by converting <code>{i}.html</code>
+      to Markdown via <code>DocumentProcessor._epub_html_to_markdown()</code>. No extra files saved during
+      conversion.
+    </li>
+  </ul>
   <p>
-    For each <code>{i}.html</code> + <code>{i}.md</code> pair, scores
-    <strong>text</strong> and <strong>structure</strong> (no math dimension for HTML).
+    <strong>Why rule-based extraction as reference?</strong> Rule-based Markdown preserves document
+    structure (headings, paragraphs, tables) without hallucination, making it a reliable ground-truth
+    proxy. Comparing plain text to Markdown would penalise structural metrics unfairly, so the reference
+    is always Markdown.
+  </p>
+
+  <h3>Setup</h3>
+  <p>Clone Page2MDBench into the project root before using the evaluator:</p>
+  <pre><code>git clone https://github.com/Hipsterfil998/Page2MDBench.git
+pip install rapidfuzz sacrebleu mistune bert-score</code></pre>
+  <p>
+    The evaluator imports metrics directly if <code>Page2MDBench</code> is on the Python path,
+    or falls back to inserting the cloned directory into <code>sys.path</code> automatically.
+  </p>
+
+  <h3>evaluate_pdf(eval_pages_dir, scores_dir)</h3>
+  <p>
+    Reads all <code>{i}.ref.md</code> + <code>{i}.md</code> pairs from <code>eval_pages_dir</code>
+    and computes metrics for each. Requires books to have been converted with the current version of
+    <code>PDFToMarkdownConverter</code> (which saves <code>.ref.md</code> during conversion).
+  </p>
+
+  <h3>evaluate_epub(eval_chunks_dir, scores_dir)</h3>
+  <p>
+    Reads all <code>{i}.html</code> + <code>{i}.md</code> pairs, converts the HTML to Markdown
+    on the fly as the reference, and computes metrics.
   </p>
 
   <h3 id="evaluate-all">evaluate_all(output_dir, scores_dir)</h3>
   <p>
     Iterates over all book folders in <code>output_dir</code>, detects the conversion type
     from the presence of <code>eval_pages/</code> (PDF) or <code>eval_chunks/</code> (EPUB),
-    and calls the matching method. All PDFs are processed first, then all EPUBs, so the two
-    models are never in VRAM simultaneously.
+    and calls the matching method.
   </p>
+  <pre><code>evaluator = QualityEvaluator(use_bertscore=False)
+evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")</code></pre>
   <p>
-    <strong>Design note:</strong> evaluation uses only the pairs saved during conversion —
-    no access to original files required. This decouples the evaluation stage from the
-    conversion stage.
+    Results are saved as <code>scores/{book_name}_scores.json</code> with the structure:
+  </p>
+  <pre><code>{
+  "average": {"ned": 0.12, "bleu": 68.4, "structure_f1": 0.91},
+  "pages": {"0": {"ned": 0.10, "bleu": 71.2, "structure_f1": 0.93}, ...}
+}</code></pre>
+  <p>
+    <strong>Design note:</strong> evaluation is fully decoupled from conversion. For PDF, the
+    reference files are saved during conversion; for EPUB, the HTML chunks are sufficient.
+    No access to original PDF/EPUB files is needed at evaluation time.
   </p>
 
   <hr>
@@ -638,14 +680,19 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
         <td>Text model is faster and uses less VRAM for EPUB and metadata</td>
       </tr>
       <tr>
-        <td>Separate PDF/EPUB judge models</td>
-        <td>Single VL judge for everything</td>
-        <td>VL model is unnecessary overhead for text-only EPUB evaluation</td>
+        <td>Reference-based metrics (Page2MDBench) for evaluation</td>
+        <td>LLM-as-judge</td>
+        <td>No GPU or LLM needed for evaluation; deterministic and reproducible scores</td>
       </tr>
       <tr>
-        <td>Lazy model loading in evaluator</td>
-        <td>Loading both models at init</td>
-        <td>Only the required model occupies VRAM; supports mixed corpora</td>
+        <td>Rule-based Markdown as PDF reference (<code>.ref.md</code>)</td>
+        <td>Plain text extraction or image-only comparison</td>
+        <td>Preserves document structure so structural metrics (MarkdownStructureF1) are meaningful</td>
+      </tr>
+      <tr>
+        <td>Save <code>.ref.md</code> during conversion</td>
+        <td>Extract reference at evaluation time</td>
+        <td>Original PDF is available during conversion; evaluation is decoupled and needs no original files</td>
       </tr>
       <tr>
         <td>Automatic language detection per book</td>
