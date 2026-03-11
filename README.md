@@ -130,22 +130,24 @@ Genres: `Journalistic`, `Functional/Gebrauchstexte`, `Factual/Non fiction/Wissen
 ```python
 from quality_evaluation.evaluator import QualityEvaluator
 
-evaluator = QualityEvaluator(judge_model_id="Qwen/Qwen2.5-VL-7B-Instruct")
-
-# PDF
-evaluator.evaluate_pdf(
-    eval_pages_dir="output/book_name/eval_pages/",
-    scores_dir="scores/"
+# Evaluate all books in output/ automatically
+evaluator = QualityEvaluator(
+    pdf_judge_model_id="Qwen/Qwen2.5-VL-7B-Instruct",  # default
+    epub_judge_model_id="Qwen/Qwen2.5-7B-Instruct",     # default
 )
-
-# EPUB
-evaluator.evaluate_epub(
-    eval_chunks_dir="output/book_name/eval_chunks/",
-    scores_dir="scores/"
-)
+evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")
 ```
 
-The judge receives the original page image (PDF) or HTML chunk (EPUB) paired with the generated Markdown, and rates **faithfulness**, not general quality. Any VL model can be used for PDF evaluation; a text model suffices for EPUB.
+`evaluate_all` detects the conversion type of each book automatically (`eval_pages/` = PDF, `eval_chunks/` = EPUB) and calls the right method. All PDFs are evaluated first, then all EPUBs, so the two models are never in VRAM simultaneously.
+
+Individual books can still be evaluated directly:
+
+```python
+evaluator.evaluate_pdf(eval_pages_dir="output/book_name/eval_pages/", scores_dir="scores/")
+evaluator.evaluate_epub(eval_chunks_dir="output/book_name/eval_chunks/", scores_dir="scores/")
+```
+
+The judge rates **faithfulness** (not general quality): PDF uses a vision-language model to compare page image vs Markdown; EPUB uses a text model to compare HTML chunk vs Markdown. Both models are loaded lazily on first use.
 
 ---
 

@@ -244,6 +244,7 @@
     <li><a href="#epub-llm">epub2md_LLM.py</a></li>
     <li><a href="#metadata">metadata_extractor.py</a></li>
     <li><a href="#evaluator">evaluator.py</a></li>
+    <li><a href="#evaluate-all">evaluate_all()</a></li>
     <li><a href="#parser">dependency_parsing.py</a></li>
 
     <li class="section-title">Reference</li>
@@ -523,6 +524,13 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
     <code>QualityEvaluator</code> implements the <strong>LLM-as-judge</strong> pattern:
     a language model evaluates the output of another model.
   </p>
+  <p>
+    Two separate models are used, loaded <strong>lazily</strong> so only the required one occupies VRAM at any given time:
+  </p>
+  <ul>
+    <li><strong>PDF judge</strong>: vision-language model (<code>Qwen2.5-VL-7B-Instruct</code>) — compares page image vs generated Markdown</li>
+    <li><strong>EPUB judge</strong>: text-only model (<code>Qwen2.5-7B-Instruct</code>) — compares HTML chunk vs generated Markdown; no vision needed</li>
+  </ul>
 
   <h3>evaluate_pdf()</h3>
   <p>
@@ -539,6 +547,14 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
   <p>
     For each <code>{i}.html</code> + <code>{i}.md</code> pair, scores
     <strong>text</strong> and <strong>structure</strong> (no math dimension for HTML).
+  </p>
+
+  <h3 id="evaluate-all">evaluate_all(output_dir, scores_dir)</h3>
+  <p>
+    Iterates over all book folders in <code>output_dir</code>, detects the conversion type
+    from the presence of <code>eval_pages/</code> (PDF) or <code>eval_chunks/</code> (EPUB),
+    and calls the matching method. All PDFs are processed first, then all EPUBs, so the two
+    models are never in VRAM simultaneously.
   </p>
   <p>
     <strong>Design note:</strong> evaluation uses only the pairs saved during conversion —
@@ -620,6 +636,16 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
         <td>Two separate LLMs (VL + text)</td>
         <td>A single multimodal model</td>
         <td>Text model is faster and uses less VRAM for EPUB and metadata</td>
+      </tr>
+      <tr>
+        <td>Separate PDF/EPUB judge models</td>
+        <td>Single VL judge for everything</td>
+        <td>VL model is unnecessary overhead for text-only EPUB evaluation</td>
+      </tr>
+      <tr>
+        <td>Lazy model loading in evaluator</td>
+        <td>Loading both models at init</td>
+        <td>Only the required model occupies VRAM; supports mixed corpora</td>
       </tr>
       <tr>
         <td>Automatic language detection per book</td>
