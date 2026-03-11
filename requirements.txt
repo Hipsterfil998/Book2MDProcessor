@@ -13,4 +13,8 @@ pillow
 markdown
 beautifulsoup4
 pypandoc
+rapidfuzz
+sacrebleu
+mistune
+bert-score
 qwen-vl-utils

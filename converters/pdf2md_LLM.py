@@ -3,12 +3,14 @@ pdf_to_markdown.py — PDF → Markdown converter using Qwen2.5-VL via vLLM.
 """
 
 import logging
+import tempfile
 from pathlib import Path
 import fitz
 from pdf2image import convert_from_path
 from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N, PDF_PROMPT, ENABLE_PREFIX_CACHING
 from vllm import LLM, SamplingParams
 from utils import pil_to_data_url, sample_indices, suppress_worker_stderr
+from converters.text_extraction import DocumentProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +72,22 @@ class PDFToMarkdownConverter:
         out_file.write_text("\n\n---\n\n".join(markdown_pages), encoding="utf-8")
         logger.info("Saved → %s", out_file)
 
-        # Save sampled page image + markdown pairs for later evaluation
+        # Save sampled page image + markdown pairs for later evaluation.
+        # Also save rule-based Markdown extraction as {j}.ref.md — used as
+        # reference by the metric-based evaluator (NED, BLEU, StructureF1).
         eval_dir = output_dir / "eval_pages"
         eval_dir.mkdir(exist_ok=True)
+        _ref_proc = DocumentProcessor()
+        doc_ref = fitz.open(str(pdf_path))
         for j in sample_indices(len(pages), self.eval_n):
             pages[j].save(str(eval_dir / f"{j}.png"))
             (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
+            with tempfile.TemporaryDirectory() as _tmp:
+                ref_blocks = _ref_proc._extract_pdf_page_blocks(
+                    doc_ref, doc_ref[j], j + 1, Path(_tmp), 50
+                )
+            (eval_dir / f"{j}.ref.md").write_text("\n".join(ref_blocks), encoding="utf-8")
+        doc_ref.close()
         logger.info("Eval pages → %s", eval_dir)
 
         return out_file
