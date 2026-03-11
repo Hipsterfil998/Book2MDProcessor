@@ -535,7 +535,7 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
       <tr><td><strong>NED</strong></td><td>lower is better</td><td>Normalised Edit Distance between reference and prediction</td></tr>
       <tr><td><strong>BLEU</strong></td><td>higher is better</td><td>n-gram precision score</td></tr>
       <tr><td><strong>MarkdownStructureF1</strong></td><td>higher is better</td><td>F1 overlap of structural Markdown elements (headings, lists, tables)</td></tr>
-      <tr><td><strong>BERTScore</strong></td><td>higher is better</td><td>Semantic similarity via BERT embeddings (optional; CPU-compatible but slow without GPU)</td></tr>
+      <tr><td><strong>BERTScore</strong></td><td>higher is better</td><td>Semantic similarity via BERT embeddings (optional; automatically uses GPU if available, falls back to CPU)</td></tr>
     </tbody>
   </table>
 

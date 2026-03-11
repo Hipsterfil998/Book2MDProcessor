@@ -82,7 +82,7 @@ Every constructor still accepts the same parameters explicitly, so individual ov
 
 Both models are never loaded simultaneously; the pipeline loads one at a time.
 
-Quality evaluation does **not** require a GPU or any LLM. NED, BLEU, and MarkdownStructureF1 run on CPU. BERTScore (optional) also runs on CPU but benefits from a GPU for speed.
+Quality evaluation does **not** require a GPU or any LLM. NED, BLEU, and MarkdownStructureF1 run on CPU. BERTScore (optional) automatically uses GPU if available, otherwise CPU.
 
 ---
 
@@ -165,7 +165,7 @@ evaluator.evaluate_epub(eval_chunks_dir="output/book_name/eval_chunks/", scores_
 | MarkdownStructureF1 | higher is better | Structural element overlap |
 | BERTScore | higher is better | Semantic similarity (optional, slow on CPU) |
 
-NED, BLEU, and MarkdownStructureF1 run on CPU with no GPU needed. BERTScore loads a BERT model and runs on CPU too, but is significantly slower; a GPU speeds it up considerably.
+NED, BLEU, and MarkdownStructureF1 run on CPU with no GPU needed. BERTScore automatically uses GPU if available (`cuda`), otherwise falls back to CPU — which works but is significantly slower.
 
 **References:** PDF evaluation compares `{i}.ref.md` (rule-based Markdown saved during conversion) against `{i}.md` (LLM output). EPUB evaluation converts `{i}.html` to Markdown via DocumentProcessor and compares it against `{i}.md`.
 
