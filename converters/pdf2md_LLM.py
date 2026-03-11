@@ -78,7 +78,10 @@ class PDFToMarkdownConverter:
         doc_ref = fitz.open(str(pdf_path))
         for j in sample_indices(len(pages), self.eval_n):
             (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
-            ref_md = doc_ref[j].get_text("markdown").strip()
+            try:
+                ref_md = doc_ref[j].get_text("markdown").strip()
+            except (AssertionError, ValueError):
+                ref_md = doc_ref[j].get_text("text").strip()  # PyMuPDF < 1.24
             (eval_dir / f"{j}.ref.md").write_text(ref_md, encoding="utf-8")
         doc_ref.close()
         logger.info("Eval pages → %s", eval_dir)
