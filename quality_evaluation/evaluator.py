@@ -20,9 +20,6 @@ import json
 import sys
 from pathlib import Path
 
-from converters.text_extraction import DocumentProcessor
-
-
 def _import_metrics():
     try:
         from metrics import NED, BLEU, MarkdownStructureF1, BERTScore
@@ -57,7 +54,6 @@ class QualityEvaluator:
         self.structure_f1 = MarkdownStructureF1()
         self.use_bertscore = use_bertscore
         self.bert = BERTScore() if use_bertscore else None
-        self._doc_processor = DocumentProcessor()
 
     def _score_pair(self, reference: str, prediction: str) -> dict:
         result = {
@@ -87,14 +83,19 @@ class QualityEvaluator:
             return {}
 
         scores = {}
+        skipped = 0
         for rf in ref_files:
             idx = int(rf.stem.split(".")[0])
             pred = eval_pages_dir / f"{idx}.md"
-            if pred.exists():
-                scores[idx] = self._score_pair(
-                    rf.read_text(encoding="utf-8"),
-                    pred.read_text(encoding="utf-8"),
-                )
+            if not pred.exists():
+                continue
+            ref_text = rf.read_text(encoding="utf-8").strip()
+            if not ref_text:
+                skipped += 1
+                continue  # scanned page: no embedded text, reference-based metrics not applicable
+            scores[idx] = self._score_pair(ref_text, pred.read_text(encoding="utf-8"))
+        if skipped:
+            print(f"  Skipped {skipped}/{len(ref_files)} page(s): scanned/image-only (no embedded text for reference).")
 
         result = self._build_result(scores, self._dims(), key="pages")
         (scores_dir / (eval_pages_dir.parent.name + "_scores.json")).write_text(
@@ -105,25 +106,34 @@ class QualityEvaluator:
     def evaluate_epub(self, eval_chunks_dir: str | Path, scores_dir: str | Path) -> dict:
         """Evaluate an EPUB to Markdown conversion.
 
-        Converts {i}.html to Markdown via DocumentProcessor (reference),
-        then compares against {i}.md (LLM prediction).
+        Reads {i}.ref.md (HTML-to-Markdown reference saved during conversion)
+        and compares against {i}.md (LLM prediction).
         """
         eval_chunks_dir, scores_dir = Path(eval_chunks_dir), Path(scores_dir)
         scores_dir.mkdir(parents=True, exist_ok=True)
 
-        chunk_files = sorted(eval_chunks_dir.glob("*.html"), key=lambda p: int(p.stem))
+        ref_files = sorted(
+            eval_chunks_dir.glob("*.ref.md"),
+            key=lambda p: int(p.stem.split(".")[0])
+        )
+        if not ref_files:
+            print(f"  No .ref.md files in {eval_chunks_dir}. Re-run conversion to generate references.")
+            return {}
+
         scores = {}
-        for cf in chunk_files:
-            pred = cf.with_suffix(".md")
+        skipped = 0
+        for rf in ref_files:
+            idx = int(rf.stem.split(".")[0])
+            pred = eval_chunks_dir / f"{idx}.md"
             if not pred.exists():
                 continue
-            reference = self._doc_processor._epub_html_to_markdown(
-                cf.read_text(encoding="utf-8")
-            )
-            scores[int(cf.stem)] = self._score_pair(
-                reference,
-                pred.read_text(encoding="utf-8"),
-            )
+            ref_text = rf.read_text(encoding="utf-8").strip()
+            if not ref_text:
+                skipped += 1
+                continue
+            scores[idx] = self._score_pair(ref_text, pred.read_text(encoding="utf-8"))
+        if skipped:
+            print(f"  Skipped {skipped}/{len(ref_files)} chunk(s) with empty reference.")
 
         result = self._build_result(scores, self._dims(), key="chunks")
         (scores_dir / (eval_chunks_dir.parent.name + "_scores.json")).write_text(

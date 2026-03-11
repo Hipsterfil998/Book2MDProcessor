@@ -301,9 +301,9 @@
   <div class="flow-box">
     <span class="dir">books/</span><br>
     &nbsp;&nbsp;<span class="file">*.pdf</span>  <span class="arrow">--&gt;</span> PDFConverter  <span class="arrow">--&gt;</span> <span class="file">output/{stem}/{stem}.md</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_pages/{i}.png + {i}.md</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_pages/{i}.md + {i}.ref.md</span><br>
     &nbsp;&nbsp;<span class="file">*.epub</span> <span class="arrow">--&gt;</span> EPUBConverter <span class="arrow">--&gt;</span> <span class="file">output/{stem}/{stem}.md</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_chunks/{i}.html + {i}.md</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">--&gt;</span> <span class="file">eval_chunks/{i}.md + {i}.ref.md</span><br>
     <br>
     <span class="dir">output/</span><br>
     &nbsp;&nbsp;<span class="file">**/eval_pages/</span>  <span class="arrow">--&gt;</span> QualityEvaluator  <span class="arrow">--&gt;</span> <span class="file">scores/{book}_scores.json</span><br>
@@ -440,7 +440,7 @@ TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB chunks, metadat
     <li>Rasterizes each PDF page to PNG at <code>PDF_DPI=300</code> dpi.</li>
     <li>Encodes each PNG as a base64 data URL.</li>
     <li>Builds a batch of multimodal messages and runs inference with <code>LLM.chat()</code> — all pages in one call.</li>
-    <li>Saves the resulting Markdown and sampled pages to <code>eval_pages/{i}.png</code> + <code>{i}.md</code>.</li>
+    <li>Saves the resulting Markdown to <code>eval_pages/{i}.md</code> and the PyMuPDF text-layer reference to <code>eval_pages/{i}.ref.md</code>.</li>
   </ol>
   <p>
     <strong>Why rasterize?</strong> Direct text extraction loses visual structure (columns, tables,
@@ -461,7 +461,7 @@ TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB chunks, metadat
     <li>Extracts images to <code>images/</code> and rewrites <code>&lt;img&gt;</code> src attributes.</li>
     <li>Splits HTML into chunks of at most <code>EPUB_MAX_CHUNK_CHARS=8000</code> chars at top-level block tags.</li>
     <li>Runs batch inference on all chunks and joins results with <code>\n\n---\n\n</code>.</li>
-    <li>Saves sampled chunks to <code>eval_chunks/{i}.html</code> + <code>{i}.md</code>.</li>
+    <li>Saves sampled chunks to <code>eval_chunks/{i}.md</code> (LLM output) and <code>{i}.ref.md</code> (HTML converted to Markdown as reference).</li>
   </ol>
   <p>
     <strong>Why chunk by HTML tag?</strong> Splitting at top-level tags ensures each chunk is
@@ -543,15 +543,14 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
   <p>Each metric compares a <em>reference</em> against the LLM-generated Markdown:</p>
   <ul>
     <li>
-      <strong>PDF</strong>: reference is <code>{i}.ref.md</code>, a rule-based Markdown extraction
-      produced by <code>DocumentProcessor._extract_pdf_page_blocks()</code> and saved during conversion
-      (while the original PDF is still available). Stored alongside the eval page images in
-      <code>eval_pages/</code>.
+      <strong>PDF</strong>: reference is <code>{i}.ref.md</code>, extracted directly from the PDF text layer
+      via <code>page.get_text("markdown")</code> (PyMuPDF) during conversion. No image rasterisation involved.
+      Stored in <code>eval_pages/</code> alongside the LLM output <code>{i}.md</code>.
     </li>
     <li>
-      <strong>EPUB</strong>: reference is obtained at evaluation time by converting <code>{i}.html</code>
-      to Markdown via <code>DocumentProcessor._epub_html_to_markdown()</code>. No extra files saved during
-      conversion.
+      <strong>EPUB</strong>: reference is <code>{i}.ref.md</code>, produced during conversion by converting
+      each HTML chunk to Markdown via <code>DocumentProcessor._epub_html_to_markdown()</code> and saved to
+      <code>eval_chunks/</code>. Same scheme as PDF.
     </li>
   </ul>
   <p>
@@ -579,8 +578,8 @@ pip install rapidfuzz sacrebleu mistune bert-score</code></pre>
 
   <h3>evaluate_epub(eval_chunks_dir, scores_dir)</h3>
   <p>
-    Reads all <code>{i}.html</code> + <code>{i}.md</code> pairs, converts the HTML to Markdown
-    on the fly as the reference, and computes metrics.
+    Reads all <code>{i}.ref.md</code> + <code>{i}.md</code> pairs from <code>eval_chunks_dir</code>
+    and computes metrics. Same scheme as PDF evaluation.
   </p>
 
   <h3 id="evaluate-all">evaluate_all(output_dir, scores_dir)</h3>

@@ -87,12 +87,17 @@ class EpubToMarkdownConverter:
 
         output.write_text(markdown, encoding="utf-8")
 
-        # Save sampled HTML chunk + markdown pairs for later evaluation
+        # Save sampled Markdown pairs for later evaluation.
+        # {j}.ref.md: HTML chunk converted to Markdown (reference, no LLM).
+        # {j}.md:     LLM-generated Markdown for the same chunk.
+        from converters.text_extraction import DocumentProcessor
+        _ref_proc = DocumentProcessor()
         eval_dir = output.parent / "eval_chunks"
         eval_dir.mkdir(exist_ok=True)
         for j in sample_indices(len(chunks), self.eval_n):
-            (eval_dir / f"{j}.html").write_text(chunks[j], encoding="utf-8")
             (eval_dir / f"{j}.md").write_text(raw_texts[j], encoding="utf-8")
+            ref_md = _ref_proc._epub_html_to_markdown(chunks[j])
+            (eval_dir / f"{j}.ref.md").write_text(ref_md, encoding="utf-8")
 
         return markdown
 

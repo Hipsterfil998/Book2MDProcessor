@@ -180,17 +180,17 @@ output/
 └── book_name/
     ├── book_name.md          # full Markdown output
     ├── images/               # embedded images extracted from the source
-    ├── eval_pages/           # PDF only: sampled page pairs for evaluation
-    │   ├── 0.png             #   original page image
-    │   ├── 0.md              #   LLM-generated Markdown
-    │   ├── 0.ref.md          #   rule-based reference Markdown (used by evaluator)
-    │   ├── 12.png
+    ├── eval_pages/           # PDF only: sampled Markdown pairs for evaluation
+    │   ├── 0.md              #   LLM-generated Markdown for page 0
+    │   ├── 0.ref.md          #   PyMuPDF text-layer reference for page 0
     │   ├── 12.md
     │   ├── 12.ref.md
     │   └── ...
-    └── eval_chunks/          # EPUB only: sampled chunk pairs for evaluation
-        ├── 0.html            #   original HTML chunk
-        ├── 0.md              #   corresponding generated Markdown
+    └── eval_chunks/          # EPUB only: sampled Markdown pairs for evaluation
+        ├── 0.md              #   LLM-generated Markdown for chunk 0
+        ├── 0.ref.md          #   HTML-to-Markdown reference for chunk 0
+        ├── 5.md
+        ├── 5.ref.md
         └── ...
 ```
 
