@@ -56,7 +56,8 @@ class PDFToMarkdownConverter:
         ]
 
         sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
-        outputs = self.llm.chat(messages, sampling_params=sampling_params)
+        outputs = self.llm.chat(messages, sampling_params=sampling_params,
+                                chat_template_kwargs={"enable_thinking": False})
 
         markdown_pages = []
         raw_texts = []

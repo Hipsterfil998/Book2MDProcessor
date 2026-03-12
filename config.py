@@ -18,21 +18,20 @@ class _StderrFilter:
 _sys.stderr = _StderrFilter(_sys.stderr)
 
 # ── Models ───────────────────────────────────────────────────────────────────
-PDF_MODEL_ID  = "Qwen/Qwen2.5-VL-7B-Instruct"  # vision-language (PDF → MD, PDF eval)
-TEXT_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"     # text-only (EPUB → MD, metadata)
+PDF_MODEL_ID  = "Qwen/Qwen3-VL-2B-Instruct"  # vision-language (PDF → MD)
+TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB → MD, metadata)
 
 # ── PDF converter ─────────────────────────────────────────────────────────────
 PDF_DPI            = 300
 PDF_MAX_NEW_TOKENS = 4096
 
-PDF_PROMPT = """Convert this PDF page to Markdown. Preserve the original language exactly.
+PDF_PROMPT = """Convert this png book page to Markdown. Preserve the original language exactly.
 
 Markdown conventions:
 - Headings:  # H1  ## H2  ### H3  #### H4
 - Bold: **text**  |  Italic: *text*  |  Bold+italic: ***text***
 - Unordered list: - item  |  Ordered list: 1. item
 - Table: GFM pipe table with --- separator row
-- Inline math: $expr$  |  Block math: $$expr$$
 - Image: ![alt](images/filename.ext)
 - Footnote: [^n]: text
 - Blockquote: > text
@@ -40,13 +39,15 @@ Markdown conventions:
 Rules:
 - Preserve heading hierarchy as in the source
 - Replace [IMAGE_N] with ![image_N](images/image_N.png)
+- remove duplication of text if present
+- if in the same scenned image there are two pages, separate the pages accordin to the page number
 - Output ONLY the Markdown, no commentary"""
 
 # ── EPUB converter ────────────────────────────────────────────────────────────
 EPUB_MAX_CHUNK_CHARS = 8_000
 EPUB_MAX_NEW_TOKENS  = 2_048
 
-EPUB_PROMPT = """Convert the following HTML to Markdown. Preserve the original language exactly.
+EPUB_PROMPT = """Convert the following HTML book page to Markdown. Preserve the original language exactly.
 
 Markdown conventions:
 - Headings:  # H1  ## H2  ### H3  #### H4
@@ -56,9 +57,12 @@ Markdown conventions:
 - Image: ![alt](images/filename.ext) -- place where the <img> appears in the HTML
 - Footnote: [^id]: text
 - Blockquote: > text
-- Code inline: `code`  |  Code block: ```lang\n...\n```
 
-Output only the Markdown.
+Rules:
+- Preserve heading hierarchy as in the source
+- remove duplication of text if present
+- Output ONLY the Markdown, no commentary
+
 
 HTML:
 {html}

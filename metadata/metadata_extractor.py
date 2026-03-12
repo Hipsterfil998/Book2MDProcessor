@@ -101,8 +101,9 @@ class MetadataExtractor:
         ]
 
         sp = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
-        biblio_outputs = [o.outputs[0].text for o in self.llm.chat(biblio_dataset, sp)]
-        genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]
+        _no_think = {"enable_thinking": False}
+        biblio_outputs = [o.outputs[0].text for o in self.llm.chat(biblio_dataset, sp, chat_template_kwargs=_no_think)]
+        genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset,  sp, chat_template_kwargs=_no_think)]
 
         records = []
         for s, biblio_raw, genre_raw in zip(samples, biblio_outputs, genre_outputs):

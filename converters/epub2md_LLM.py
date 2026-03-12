@@ -81,7 +81,8 @@ class EpubToMarkdownConverter:
         messages = [[{"role": "user", "content": EPUB_PROMPT.format(html=c)}] for c in chunks]
 
         sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
-        outputs = self.llm.chat(messages, sampling_params=sampling_params)
+        outputs = self.llm.chat(messages, sampling_params=sampling_params,
+                                chat_template_kwargs={"enable_thinking": False})
         raw_texts = [out.outputs[0].text for out in outputs]
         markdown = "\n\n---\n\n".join(raw_texts)
 
