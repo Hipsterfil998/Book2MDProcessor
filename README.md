@@ -42,9 +42,11 @@ PDF_MODEL_ID  = "Qwen/Qwen3-VL-4B-Instruct"  # vision-language (PDF -> Markdown)
 TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB -> Markdown, metadata)
 
 # Generation
-PDF_MAX_NEW_TOKENS      = 4096
-EPUB_MAX_NEW_TOKENS     = 2_048
-METADATA_MAX_NEW_TOKENS = 128
+PDF_MAX_NEW_TOKENS        = 4096
+EPUB_MAX_NEW_TOKENS       = 2_048
+METADATA_MAX_NEW_TOKENS   = 128
+PDF_REPETITION_PENALTY    = 1.15   # prevents looping repetitions
+EPUB_REPETITION_PENALTY   = 1.15
 
 # Evaluation sampling
 EVAL_N = 20  # pages/chunks sampled per book
@@ -236,7 +238,9 @@ Stanza models are downloaded automatically on first run (~500 MB per language).
 ## Markdown Format
 
 - **PDF**: pages separated by `\n\n`, each with a `<!-- Page N -->` header; blank pages are automatically skipped
-- **EPUB**: chunks separated by `\n\n`
+- **EPUB**: chunks separated by `\n\n`; TOC/nav chapters are automatically skipped
+
+**Output cleaning (both formats):** after generation, each chunk/page goes through `_clean()` which strips code fences and prompt echoes, then `truncate_repetitions()` which detects and cuts any line-level repetition loop.
 
 ---
 

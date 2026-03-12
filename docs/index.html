@@ -567,6 +567,16 @@ TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB chunks, metadata)
     The 75/25 ratio empirically covers typographic variability better.
   </p>
 
+  <h3>truncate_repetitions(text)</h3>
+  <p>
+    Post-processing guard against LLM repetition loops. Scans the generated text line by line;
+    if a non-trivial line (&ge;25 chars) reappears within 6 lines of its previous occurrence,
+    the text is truncated right after the first occurrence. Applied inside <code>_clean()</code>
+    of both <code>PDFToMarkdownConverter</code> and <code>EpubToMarkdownConverter</code>.
+    Works as a second layer on top of <code>repetition_penalty</code> in <code>SamplingParams</code>,
+    catching any loops that survive greedy decoding.
+  </p>
+
   <h3>suppress_worker_stderr()</h3>
   <p>
     Intercepts file descriptor 2 at the OS level (not just <code>sys.stderr</code>) during
@@ -650,6 +660,7 @@ TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB chunks, metadata)
     <li>Resizes each image to max 1024 px and re-encodes as JPEG (quality 85) before sending to the model.</li>
     <li>Blank pages (&lt;0.1% non-white pixels) are detected and skipped before batch inference.</li>
     <li>Builds a batch of multimodal messages and runs inference with <code>LLM.chat()</code> — all pages in one call.</li>
+    <li>Passes each output through <code>_clean()</code> (strips code fences, truncates repetition loops via <code>truncate_repetitions()</code>).</li>
     <li>Saves the resulting Markdown to <code>eval_pages/{i}.md</code> and the PyMuPDF text-layer reference to <code>eval_pages/{i}.ref.md</code>.</li>
   </ol>
   <div class="callout">
@@ -669,9 +680,11 @@ TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB chunks, metadata)
   <p><code>EpubToMarkdownConverter</code> uses Qwen3 (text-only):</p>
   <ol>
     <li>Iterates chapters in spine order using <code>ebooklib</code> directly (no pypandoc).</li>
+    <li>Skips TOC/navigation documents (<code>toc</code>, <code>nav</code>, <code>ncx</code>, <code>contents</code> by filename or <code>epub:type="nav"</code> in HTML).</li>
     <li>Extracts images to <code>images/</code> and rewrites <code>&lt;img&gt;</code> src attributes.</li>
     <li>Splits each chapter HTML into chunks of at most <code>EPUB_MAX_CHUNK_CHARS=8000</code> chars at top-level block tags inside <code>&lt;body&gt;</code>.</li>
     <li>Runs batch inference on all chunks and joins results with <code>\n\n</code>.</li>
+    <li>Passes each output through <code>_clean()</code>: strips code fences, removes heading-scheme echoes from the prompt, and truncates repetition loops.</li>
     <li>Saves sampled chunks to <code>eval_chunks/{i}.md</code> (LLM output) and <code>{i}.ref.md</code> (HTML converted to Markdown as reference).</li>
   </ol>
   <div class="callout teal">
