@@ -74,7 +74,7 @@ class PDFToMarkdownConverter:
             markdown_pages.append(f"<!-- Page {j + 1} -->\n{text}")
 
         out_file = output_dir / (pdf_path.stem + ".md")
-        out_file.write_text("\n\n---\n\n".join(markdown_pages), encoding="utf-8")
+        out_file.write_text("\n\n".join(markdown_pages), encoding="utf-8")
         logger.info("Saved → %s", out_file)
 
         # Save sampled Markdown pairs for later evaluation.

@@ -18,7 +18,7 @@ class _StderrFilter:
 _sys.stderr = _StderrFilter(_sys.stderr)
 
 # ── Models ───────────────────────────────────────────────────────────────────
-PDF_MODEL_ID  = "Qwen/Qwen3-VL-2B-Instruct"  # vision-language (PDF → MD)
+PDF_MODEL_ID  = "Qwen/Qwen3-VL-4B-Instruct"  # vision-language (PDF → MD)
 TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB → MD, metadata)
 
 # ── PDF converter ─────────────────────────────────────────────────────────────
@@ -28,9 +28,12 @@ PDF_MAX_NEW_TOKENS = 4096
 PDF_PROMPT = """Convert this png book page to Markdown. Preserve the original language exactly.
 
 Markdown conventions:
-- Headings:  # H1  ## H2  ### H3  #### H4
-- Bold: **text**  |  Italic: *text*  |  Bold+italic: ***text***
-- Unordered list: - item  |  Ordered list: 1. item
+- Headings scheme:  # H1  ## H2  ### H3  #### H4
+- Bold: **text**  
+- Italic: *text*
+- Bold+italic: ***text***
+- Unordered list: - item
+- Ordered list: 1. item
 - Table: GFM pipe table with --- separator row
 - Image: ![alt](images/filename.ext)
 - Footnote: [^n]: text
@@ -38,8 +41,9 @@ Markdown conventions:
 
 Rules:
 - Preserve heading hierarchy as in the source
+- use the heading schemes only for titles and section headings 
 - Replace [IMAGE_N] with ![image_N](images/image_N.png)
-- remove duplication of text if present
+- never duplicate text
 - if in the same scenned image there are two pages, separate the pages accordin to the page number
 - Output ONLY the Markdown, no commentary"""
 
@@ -50,9 +54,12 @@ EPUB_MAX_NEW_TOKENS  = 2_048
 EPUB_PROMPT = """Convert the following HTML book page to Markdown. Preserve the original language exactly.
 
 Markdown conventions:
-- Headings:  # H1  ## H2  ### H3  #### H4
-- Bold: **text**  |  Italic: *text*  |  Bold+italic: ***text***
-- Unordered list: - item  |  Ordered list: 1. item
+- Headings scheme:  # H1  ## H2  ### H3  #### H4
+- Bold: **text**
+- Italic: *text*
+- Bold+italic: ***text***
+- Unordered list: - item
+- Ordered list: 1. item
 - Table: GFM pipe table with --- separator row
 - Image: ![alt](images/filename.ext) -- place where the <img> appears in the HTML
 - Footnote: [^id]: text
@@ -60,7 +67,8 @@ Markdown conventions:
 
 Rules:
 - Preserve heading hierarchy as in the source
-- remove duplication of text if present
+- use the heading schemes only for titles and section headings 
+- never duplicate text
 - Output ONLY the Markdown, no commentary
 
 

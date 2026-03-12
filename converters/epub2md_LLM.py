@@ -95,7 +95,7 @@ class EpubToMarkdownConverter:
         outputs = self.llm.chat(messages, sampling_params=sampling_params,
                                 chat_template_kwargs={"enable_thinking": False})
         raw_texts = [out.outputs[0].text for out in outputs]
-        markdown = "\n\n---\n\n".join(raw_texts)
+        markdown = "\n\n".join(raw_texts)
 
         output.write_text(markdown, encoding="utf-8")
 

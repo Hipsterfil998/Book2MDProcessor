@@ -7,6 +7,7 @@ import random
 import sys
 import threading
 from io import BytesIO
+from PIL import Image
 
 # Patterns emitted by grpc/protobuf 3→4 incompatibility in vLLM worker processes
 _PROTOBUF_NOISE = (b"GetPrototype", b"MessageFactory")
@@ -64,11 +65,19 @@ def suppress_worker_stderr():
         t.join(timeout=5)
 
 
-def pil_to_data_url(img) -> str:
-    """Encode a PIL image as a base64 PNG data URL for vLLM multimodal input."""
+def pil_to_data_url(img, max_side: int = 1024, jpeg_quality: int = 85) -> str:
+    """Encode a PIL image as a base64 JPEG data URL for vLLM multimodal input.
+
+    Resizes to max_side on the longest dimension before encoding to reduce
+    token count and payload size without affecting text legibility.
+    """
+    img = img.copy()
+    img.thumbnail((max_side, max_side), Image.LANCZOS)
+    if img.mode == "RGBA":
+        img = img.convert("RGB")
     buf = BytesIO()
-    img.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    img.save(buf, format="JPEG", quality=jpeg_quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def sample_indices(total: int, n: int = 20, indices: list[int] | None = None) -> list[int]:
