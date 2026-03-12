@@ -22,8 +22,9 @@ PDF_MODEL_ID  = "Qwen/Qwen3-VL-4B-Instruct"  # vision-language (PDF → MD)
 TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB → MD, metadata)
 
 # ── PDF converter ─────────────────────────────────────────────────────────────
-PDF_DPI            = 300
-PDF_MAX_NEW_TOKENS = 4096
+PDF_DPI              = 300
+PDF_MAX_NEW_TOKENS   = 4096
+PDF_REPETITION_PENALTY = 1.15  # prevents the model from looping on repeated tokens
 
 PDF_PROMPT = """Convert this png book page to Markdown. Preserve the original language exactly.
 
@@ -48,8 +49,9 @@ Rules:
 - Output ONLY the Markdown, no commentary"""
 
 # ── EPUB converter ────────────────────────────────────────────────────────────
-EPUB_MAX_CHUNK_CHARS = 8_000
-EPUB_MAX_NEW_TOKENS  = 2_048
+EPUB_MAX_CHUNK_CHARS    = 8_000
+EPUB_MAX_NEW_TOKENS     = 2_048
+EPUB_REPETITION_PENALTY = 1.15  # prevents the model from looping on repeated tokens
 
 EPUB_PROMPT = """Convert the following HTML book page to Markdown. Preserve the original language exactly.
 

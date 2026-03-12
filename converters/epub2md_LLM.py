@@ -1,13 +1,17 @@
 """epub_converter.py — EPUB → Markdown via ebooklib + vLLM."""
 
+import re
 from pathlib import Path
 import ebooklib
 from bs4 import BeautifulSoup
 from ebooklib import epub
 from ebooklib.epub import EpubImage
-from config import TEXT_MODEL_ID, EPUB_MAX_CHUNK_CHARS, EPUB_MAX_NEW_TOKENS, EVAL_N, EPUB_PROMPT, ENABLE_PREFIX_CACHING
+from config import TEXT_MODEL_ID, EPUB_MAX_CHUNK_CHARS, EPUB_MAX_NEW_TOKENS, EPUB_REPETITION_PENALTY, EVAL_N, EPUB_PROMPT, ENABLE_PREFIX_CACHING
 from vllm import LLM, SamplingParams
 from utils import sample_indices, suppress_worker_stderr
+
+# Filenames that indicate a navigation / TOC document — skip these during conversion
+_TOC_FILENAME_RE = re.compile(r"(toc|nav|contents|index|ncx)", re.IGNORECASE)
 
 
 class EpubToMarkdownConverter:
@@ -24,6 +28,52 @@ class EpubToMarkdownConverter:
         with suppress_worker_stderr():
             self.llm = LLM(model=model_id, dtype="bfloat16",
                            enable_prefix_caching=ENABLE_PREFIX_CACHING)
+
+    @staticmethod
+    def _is_toc_item(item) -> bool:
+        """Return True if the spine item is a navigation/TOC document to skip."""
+        fname = Path(item.file_name).stem.lower()
+        if _TOC_FILENAME_RE.search(fname):
+            return True
+        # EPUB3 nav document carries epub:type="nav" or epub:type="toc"
+        try:
+            html = item.get_content().decode("utf-8", errors="replace")
+            if 'epub:type="nav"' in html or "epub:type='nav'" in html:
+                return True
+            if 'epub:type="toc"' in html or "epub:type='toc'" in html:
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
+    def _clean(text: str) -> str:
+        """Strip artifacts the model sometimes prepends to output:
+        - Markdown code fences (```...```)
+        - The heading-scheme example line echoed from the prompt
+          (# H1  ## H2  ### H3  #### H4 on one or multiple lines)
+        """
+        text = text.strip()
+        # Remove code fences
+        if text.startswith("```"):
+            lines = text.split("\n")
+            end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+            text = "\n".join(lines[1:end]).strip()
+        # Remove heading-scheme echo: lines that are exactly the H1/H2/H3/H4 labels
+        heading_echo = re.compile(r"^(#+ H\d\s*)+$")
+        lines = text.split("\n")
+        cleaned = []
+        skip_next_blank = False
+        for line in lines:
+            if heading_echo.match(line.strip()):
+                skip_next_blank = True
+                continue
+            if skip_next_blank and line.strip() == "":
+                skip_next_blank = False
+                continue
+            skip_next_blank = False
+            cleaned.append(line)
+        return "\n".join(cleaned).strip()
 
     def _chunk(self, html: str) -> list[str]:
         """Split a chapter HTML into chunks by block-level tags inside <body>."""
@@ -86,15 +136,18 @@ class EpubToMarkdownConverter:
             item = book.get_item_with_id(item_id)
             if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
                 continue
+            if self._is_toc_item(item):
+                continue
             chapter_html = item.get_content().decode("utf-8", errors="replace")
             chapter_html = self._rewrite_img_srcs(chapter_html, image_map)
             chunks.extend(self._chunk(chapter_html))
         messages = [[{"role": "user", "content": EPUB_PROMPT.format(html=c)}] for c in chunks]
 
-        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
+        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0,
+                                         repetition_penalty=EPUB_REPETITION_PENALTY)
         outputs = self.llm.chat(messages, sampling_params=sampling_params,
                                 chat_template_kwargs={"enable_thinking": False})
-        raw_texts = [out.outputs[0].text for out in outputs]
+        raw_texts = [self._clean(out.outputs[0].text) for out in outputs]
         markdown = "\n\n".join(raw_texts)
 
         output.write_text(markdown, encoding="utf-8")

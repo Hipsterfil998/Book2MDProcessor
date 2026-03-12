@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 import fitz
 from pdf2image import convert_from_path
-from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, EVAL_N, PDF_PROMPT, ENABLE_PREFIX_CACHING
+from config import PDF_MODEL_ID, PDF_DPI, PDF_MAX_NEW_TOKENS, PDF_REPETITION_PENALTY, EVAL_N, PDF_PROMPT, ENABLE_PREFIX_CACHING
 from vllm import LLM, SamplingParams
 from utils import pil_to_data_url, sample_indices, suppress_worker_stderr
 
@@ -61,7 +61,8 @@ class PDFToMarkdownConverter:
             for j, img in non_blank
         ]
 
-        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0)
+        sampling_params = SamplingParams(max_tokens=self.max_new_tokens, temperature=0.0,
+                                         repetition_penalty=PDF_REPETITION_PENALTY)
         outputs = self.llm.chat(messages, sampling_params=sampling_params,
                                 chat_template_kwargs={"enable_thinking": False})
 
