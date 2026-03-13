@@ -31,7 +31,7 @@ def _import_metrics():
         from metrics import NED, BLEU, MarkdownStructureF1, BERTScore
         return NED, BLEU, MarkdownStructureF1, BERTScore
     except ImportError:
-        bench = eval_dir.parent.parent.parent / "Page2MDBench"
+        bench = eval_dir.parent.parent / "Page2MDBench"
         if bench.exists():
             sys.path.insert(0, str(bench))
             from metrics import NED, BLEU, MarkdownStructureF1, BERTScore
