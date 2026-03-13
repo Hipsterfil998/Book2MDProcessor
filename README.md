@@ -82,10 +82,12 @@ The script installs `poppler-utils` and all Python dependencies. The `--with-eva
 
 ### 3. GPU requirements (conversion only)
 
-| Model | VRAM (bfloat16) | Recommended |
-|---|---|---|
-| Qwen3-VL-4B-Instruct (PDF) | ~10 GB | A100 / L4 / T4 |
-| Qwen3-4B (EPUB + metadata) | ~8 GB | T4 |
+| Model | VRAM (bfloat16) |
+|---|---|
+| Qwen3-VL-4B-Instruct (PDF) | ~10 GB |
+| Qwen3-4B (EPUB + metadata) | ~8 GB |
+
+An **A100 or G4** is recommended for full book processing needs.
 
 Both models are never loaded simultaneously; the pipeline loads one at a time.
 
