@@ -91,7 +91,16 @@ Quality evaluation does **not** require a GPU or any LLM. NED, BLEU, and Markdow
 
 ## Usage
 
-Both a Python API and a command-line interface are available. They are fully equivalent.
+Both a Python interface and a command-line interface are available. They are fully equivalent.
+
+All CLI flags default to the values in `config.py`. Directory overrides (`--input`, `--output`, etc.) go **before** the subcommand:
+
+```bash
+python cli.py --input /miei/libri/ --output /risultati/ convert --pdf
+python cli.py --output /risultati/ --scores /punteggi/ evaluate
+```
+
+Run `python cli.py --help` or `python cli.py <subcommand> --help` for the full option list.
 
 ### Convert books (PDF and/or EPUB)
 
@@ -259,7 +268,9 @@ Stanza models are downloaded automatically on first run (~500 MB per language).
 - **PDF**: pages separated by `\n\n`, each with a `<!-- Page N -->` header; blank pages are automatically skipped
 - **EPUB**: chunks separated by `\n\n`; TOC/nav chapters are automatically skipped
 
-**Output cleaning (both formats):** after generation, each chunk/page goes through `_clean()` which strips code fences and prompt echoes, then `truncate_repetitions()` which detects and cuts any line-level repetition loop.
+**Output cleaning (both formats):** after generation, each chunk/page goes through `_clean()` (strips code fences and prompt echoes) then `truncate_repetitions()`, which runs two passes:
+1. **Line-level**: a line of 25+ chars reappearing within 6 lines triggers truncation.
+2. **Inline**: a phrase of 40+ chars reappearing within 400 chars of running text triggers truncation — catches loops inside a single paragraph, common with scanned PDFs.
 
 ---
 

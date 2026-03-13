@@ -405,7 +405,7 @@
     <li class="section-title">Modules</li>
     <li><a href="#config"><span class="nav-dot"></span>config.py</a></li>
     <li><a href="#utils"><span class="nav-dot"></span>utils.py</a></li>
-    <li><a href="#orchestrator"><span class="nav-dot"></span>book_converter.py</a></li>
+    <li><a href="#orchestrator"><span class="nav-dot"></span>book_converter.py / CLI</a></li>
     <li><a href="#rule-based"><span class="nav-dot"></span>text_extraction.py</a></li>
     <li><a href="#pdf-llm"><span class="nav-dot"></span>pdf2md_LLM.py</a></li>
     <li><a href="#epub-llm"><span class="nav-dot"></span>epub2md_LLM.py</a></li>
@@ -591,12 +591,18 @@ TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB chunks, metadata)
 
   <h3>truncate_repetitions(text)</h3>
   <p>
-    Post-processing guard against LLM repetition loops. Scans the generated text line by line;
-    if a non-trivial line (&ge;25 chars) reappears within 6 lines of its previous occurrence,
-    the text is truncated right after the first occurrence. Applied inside <code>_clean()</code>
-    of both <code>PDFToMarkdownConverter</code> and <code>EpubToMarkdownConverter</code>.
-    Works as a second layer on top of <code>repetition_penalty</code> in <code>SamplingParams</code>,
-    catching any loops that survive greedy decoding.
+    Post-processing guard against LLM repetition loops. Runs two passes:
+  </p>
+  <ol>
+    <li><strong>Line-level:</strong> if a non-trivial line (&ge;25 chars) reappears within 6 lines
+    of its previous occurrence, the text is truncated before the second occurrence.</li>
+    <li><strong>Inline:</strong> if a phrase of &ge;40 chars reappears within 400 chars of running
+    text, truncation is applied before the second occurrence. This catches loops inside a single
+    paragraph — common with scanned PDFs where the model generates running text without newlines.</li>
+  </ol>
+  <p>
+    Applied inside <code>_clean()</code> of both converters, as a second layer on top of
+    <code>repetition_penalty</code> in <code>SamplingParams</code>.
   </p>
 
   <h3>suppress_worker_stderr()</h3>
@@ -632,6 +638,23 @@ TEXT_MODEL_ID = "Qwen/Qwen3-4B"              # text-only (EPUB chunks, metadata)
       books, which is critical when working with large corpora.</p>
     </div>
   </div>
+
+  <h3>CLI (<code>cli.py</code>)</h3>
+  <p>
+    All pipeline operations are also available from the command line via <code>cli.py</code>.
+    Directory flags (<code>--input</code>, <code>--output</code>, etc.) default to the values in
+    <code>config.py</code> and must be placed <strong>before</strong> the subcommand:
+  </p>
+  <div class="code-block">
+    <div class="code-label">bash</div>
+    <pre><code>python cli.py --input books/ --output output/ convert --pdf
+python cli.py --output output/ --scores scores/ evaluate --bertscore
+python cli.py --help          # full option list
+python cli.py convert --help  # subcommand options</code></pre>
+  </div>
+  <p>Subcommands: <code>convert</code> (flags: <code>--pdf</code>, <code>--epub</code>, <code>--simple</code>),
+  <code>metadata</code>, <code>evaluate</code> (flag: <code>--bertscore</code>),
+  <code>parse</code> (flags: <code>--langs</code>, <code>--format</code>).</p>
 
   <hr>
 
