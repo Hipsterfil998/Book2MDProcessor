@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Book Conversion Pipeline — Documentation</title>
+  <title>Book2MD Converter Pipeline — Documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -428,7 +428,7 @@
   <div class="hero" style="display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;">
     <div style="flex:1;min-width:240px;">
       <div class="hero-eyebrow">📖 Technical Reference</div>
-      <h1>Book Conversion Pipeline</h1>
+      <h1>Book2MD Converter Pipeline</h1>
       <p class="subtitle">
         Convert Italian and German books (PDF / EPUB) to structured Markdown,
         extract bibliographic metadata, evaluate conversion quality, and annotate linguistic structure.
@@ -1020,7 +1020,7 @@ evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")</code></pre>
   <h2 id="references">References</h2>
   <p>Sources and papers for the core tools and metrics used in this pipeline.</p>
 
-  <h3>Inference &amp; Models</h3>
+  <h3 id="ref-models">Inference &amp; Models</h3>
   <ul>
     <li>
       <strong>vLLM</strong> — PagedAttention-based LLM serving engine.<br/>
@@ -1042,7 +1042,7 @@ evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")</code></pre>
     </li>
   </ul>
 
-  <h3>Evaluation Metrics</h3>
+  <h3 id="ref-metrics">Evaluation Metrics</h3>
   <ul>
     <li>
       <strong>Page2MDBench</strong> — Benchmark suite providing NED, BLEU, MarkdownStructureF1, and BERTScore for PDF-to-Markdown evaluation.<br/>
@@ -1067,7 +1067,7 @@ evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")</code></pre>
     </li>
   </ul>
 
-  <h3>NLP &amp; Parsing</h3>
+  <h3 id="ref-nlp">NLP &amp; Parsing</h3>
   <ul>
     <li>
       <strong>Stanza</strong> — Neural NLP library for tokenization, POS tagging, lemmatization, and dependency parsing.<br/>
@@ -1081,7 +1081,7 @@ evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")</code></pre>
     </li>
   </ul>
 
-  <h3>PDF &amp; EPUB Processing</h3>
+  <h3 id="ref-processing">PDF &amp; EPUB Processing</h3>
   <ul>
     <li>
       <strong>PyMuPDF (fitz)</strong> — Python bindings for MuPDF; used for PDF rendering and text-layer extraction.<br/>

@@ -65,7 +65,7 @@
   </g>
 
   <!-- Project name -->
-  <text x="212" y="46" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#1e2d5a" letter-spacing="-0.5">Book</text>
-  <text x="212" y="70" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#2ab8a0" letter-spacing="-0.5">Converter</text>
+  <text x="212" y="46" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#1e2d5a" letter-spacing="-0.5">Book<tspan fill="#2ab8a0">2MD</tspan></text>
+  <text x="212" y="70" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#1e2d5a" letter-spacing="-0.5">Converter</text>
   <text x="213" y="84" font-family="'Segoe UI', Arial, sans-serif" font-size="9" fill="#888" letter-spacing="1.5">PDF · EPUB → MARKDOWN</text>
 </svg>

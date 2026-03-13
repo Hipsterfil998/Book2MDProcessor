@@ -2,7 +2,7 @@
 
 <img src="docs/logo.svg" alt="BookConverter logo" width="320"/>
 
-# Book Conversion & Metadata Extraction Pipeline
+# Book2MD Converter
 
 </div>
 
