@@ -43,9 +43,14 @@ setup.sh
 
 ## Setup
 
+Clone the repository once, then install in editable mode — `git pull` is enough for future updates, no reinstall needed.
+
 ### Local / server
 
 ```bash
+git clone https://github.com/Hipsterfil998/Book2MD-Converter.git
+cd Book2MD-Converter
+
 # Install system + Python dependencies
 bash setup.sh
 
@@ -59,6 +64,9 @@ pip install -e .
 ### Google Colab
 
 ```python
+!git clone https://github.com/Hipsterfil998/Book2MD-Converter.git
+%cd Book2MD-Converter
+
 !bash setup.sh            # conversion only
 !bash setup.sh --with-eval  # + evaluation
 
