@@ -1,6 +1,4 @@
-"""
-pdf_to_markdown.py — PDF → Markdown converter using Qwen2.5-VL via vLLM.
-"""
+"""pdf2md_LLM.py — PDF → Markdown converter using Qwen3-VL via vLLM."""
 
 import logging
 from pathlib import Path

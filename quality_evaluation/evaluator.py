@@ -66,65 +66,25 @@ class QualityEvaluator:
         return result
 
     def evaluate_pdf(self, eval_pages_dir: str | Path, scores_dir: str | Path) -> dict:
-        """Evaluate a PDF to Markdown conversion.
-
-        Reads {i}.ref.md (rule-based reference) + {i}.md (LLM prediction) pairs.
-        {i}.ref.md is generated automatically by PDFToMarkdownConverter.
-        """
-        eval_pages_dir, scores_dir = Path(eval_pages_dir), Path(scores_dir)
-        scores_dir.mkdir(parents=True, exist_ok=True)
-
-        ref_files = sorted(
-            eval_pages_dir.glob("*.ref.md"),
-            key=lambda p: int(p.stem.split(".")[0])
-        )
-        if not ref_files:
-            print(f"  No .ref.md files in {eval_pages_dir}. Re-run conversion to generate references.")
-            return {}
-
-        scores = {}
-        skipped = 0
-        for rf in ref_files:
-            idx = int(rf.stem.split(".")[0])
-            pred = eval_pages_dir / f"{idx}.md"
-            if not pred.exists():
-                continue
-            ref_text = rf.read_text(encoding="utf-8").strip()
-            if not ref_text:
-                skipped += 1
-                continue  # scanned page: no embedded text, reference-based metrics not applicable
-            scores[idx] = self._score_pair(ref_text, pred.read_text(encoding="utf-8"))
-        if skipped:
-            print(f"  Skipped {skipped}/{len(ref_files)} page(s): scanned/image-only (no embedded text for reference).")
-
-        result = self._build_result(scores, self._dims(), key="pages")
-        (scores_dir / (eval_pages_dir.parent.name + "_scores.json")).write_text(
-            json.dumps(result, indent=2), encoding="utf-8"
-        )
-        return result
+        """Evaluate a PDF conversion. Reads {i}.ref.md + {i}.md pairs."""
+        return self._evaluate_dir(Path(eval_pages_dir), Path(scores_dir), key="pages", label="page")
 
     def evaluate_epub(self, eval_chunks_dir: str | Path, scores_dir: str | Path) -> dict:
-        """Evaluate an EPUB to Markdown conversion.
+        """Evaluate an EPUB conversion. Reads {i}.ref.md + {i}.md pairs."""
+        return self._evaluate_dir(Path(eval_chunks_dir), Path(scores_dir), key="chunks", label="chunk")
 
-        Reads {i}.ref.md (HTML-to-Markdown reference saved during conversion)
-        and compares against {i}.md (LLM prediction).
-        """
-        eval_chunks_dir, scores_dir = Path(eval_chunks_dir), Path(scores_dir)
+    def _evaluate_dir(self, eval_dir: Path, scores_dir: Path, key: str, label: str) -> dict:
         scores_dir.mkdir(parents=True, exist_ok=True)
-
-        ref_files = sorted(
-            eval_chunks_dir.glob("*.ref.md"),
-            key=lambda p: int(p.stem.split(".")[0])
-        )
+        ref_files = sorted(eval_dir.glob("*.ref.md"), key=lambda p: int(p.stem.split(".")[0]))
         if not ref_files:
-            print(f"  No .ref.md files in {eval_chunks_dir}. Re-run conversion to generate references.")
+            print(f"  No .ref.md files in {eval_dir}. Re-run conversion to generate references.")
             return {}
 
         scores = {}
         skipped = 0
         for rf in ref_files:
             idx = int(rf.stem.split(".")[0])
-            pred = eval_chunks_dir / f"{idx}.md"
+            pred = eval_dir / f"{idx}.md"
             if not pred.exists():
                 continue
             ref_text = rf.read_text(encoding="utf-8").strip()
@@ -133,10 +93,10 @@ class QualityEvaluator:
                 continue
             scores[idx] = self._score_pair(ref_text, pred.read_text(encoding="utf-8"))
         if skipped:
-            print(f"  Skipped {skipped}/{len(ref_files)} chunk(s) with empty reference.")
+            print(f"  Skipped {skipped}/{len(ref_files)} {label}(s) with empty reference.")
 
-        result = self._build_result(scores, self._dims(), key="chunks")
-        (scores_dir / (eval_chunks_dir.parent.name + "_scores.json")).write_text(
+        result = self._build_result(scores, self._dims(), key=key)
+        (scores_dir / (eval_dir.parent.name + "_scores.json")).write_text(
             json.dumps(result, indent=2), encoding="utf-8"
         )
         return result

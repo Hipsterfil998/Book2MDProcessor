@@ -66,17 +66,15 @@ Every constructor still accepts the same parameters explicitly, so individual ov
 
 ## Setup on Google Colab
 
-### 1. System dependencies
+```python
+# Conversion only
+!bash setup.sh
 
-```bash
-!apt-get install -y poppler-utils   # required by pdf2image (PDF rasterization)
+# Conversion + evaluation
+!bash setup.sh --with-eval
 ```
 
-### 2. Python dependencies
-
-```bash
-!pip install -r requirements.txt
-```
+The script installs `poppler-utils` and all Python dependencies. The `--with-eval` flag also clones [Page2MDBench](https://github.com/Hipsterfil998/Page2MDBench) and installs the evaluation libraries.
 
 ### 3. GPU requirements (conversion only)
 
@@ -93,8 +91,11 @@ Quality evaluation does **not** require a GPU or any LLM. NED, BLEU, and Markdow
 
 ## Usage
 
+Both a Python API and a command-line interface are available. They are fully equivalent.
+
 ### Convert books (PDF and/or EPUB)
 
+**Python API:**
 ```python
 from book_converter import ConverterPipeline
 
@@ -110,10 +111,18 @@ pipeline.run_epub_llm()   # converts all .epub files
 # pipeline.run_simple()   # rule-based fallback, no LLM
 ```
 
+**CLI:**
+```bash
+python cli.py convert --pdf
+python cli.py convert --epub
+python cli.py convert --simple
+```
+
 **Resume support:** if `output/` already contains converted books (i.e. `output/{book_name}/{book_name}.md` exists), those books are automatically skipped. Re-running the pipeline after an interruption will pick up from where it left off.
 
 ### Extract metadata
 
+**Python API:**
 ```python
 from metadata.metadata_extractor import MetadataExtractor
 
@@ -122,6 +131,11 @@ extractor.run(
     output_dir="output/",              # folder with converted book subfolders
     output_csv="metadata/metadata.csv"
 )
+```
+
+**CLI:**
+```bash
+python cli.py metadata
 ```
 
 Extracts per book:
@@ -136,20 +150,18 @@ Genres: `Journalistic`, `Functional/Gebrauchstexte`, `Factual/Non fiction/Wissen
 
 Evaluation uses reference-based metrics from [Page2MDBench](https://github.com/Hipsterfil998/Page2MDBench). No LLM or GPU required.
 
-First, clone Page2MDBench into the project root:
-
-```bash
-git clone https://github.com/Hipsterfil998/Page2MDBench.git
-pip install rapidfuzz sacrebleu mistune bert-score
-```
-
-Then run:
-
+**Python API:**
 ```python
 from quality_evaluation.evaluator import QualityEvaluator
 
 evaluator = QualityEvaluator(use_bertscore=False)  # set True to also compute BERTScore
 evaluator.evaluate_all(output_dir="output/", scores_dir="scores/")
+```
+
+**CLI:**
+```bash
+python cli.py evaluate
+python cli.py evaluate --bertscore   # also compute BERTScore
 ```
 
 `evaluate_all` detects the conversion type of each book automatically (`eval_pages/` = PDF, `eval_chunks/` = EPUB) and calls the right method.
@@ -215,11 +227,18 @@ metadata/
 
 ### Dependency parsing
 
+**Python API:**
 ```python
 from dependency_parsing.dependency_parsing import DependencyParser
 
 parser = DependencyParser(langs=["it", "de"], output_format="conllu")
 parser.run(input_dir="output/", output_dir="parsed/")
+```
+
+**CLI:**
+```bash
+python cli.py parse
+python cli.py parse --langs it de --format conllu
 ```
 
 Runs full NLP annotation on the main Markdown file of each book (`output/{stem}/{stem}.md`):

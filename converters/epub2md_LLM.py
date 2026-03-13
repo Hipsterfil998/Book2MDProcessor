@@ -121,7 +121,7 @@ class EpubToMarkdownConverter:
 
     def convert(self, epub_path: str, output_path: str | None = None) -> str:
         """Convert EPUB to Markdown. Images are saved alongside output_path.
-        Chunks are separated by \\n\\n---\\n\\n; sampled chunks saved to eval_chunks/."""
+        Chunks are separated by \\n\\n; sampled chunks saved to eval_chunks/."""
         output = Path(output_path) if output_path else Path(epub_path).with_suffix(".md")
         images_dir = output.parent / "images"
 

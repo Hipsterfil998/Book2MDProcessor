@@ -399,6 +399,7 @@
     <li class="section-title">Overview</li>
     <li><a href="#overview"><span class="nav-dot"></span>Introduction</a></li>
     <li><a href="#structure"><span class="nav-dot"></span>Project Structure</a></li>
+    <li><a href="#setup"><span class="nav-dot"></span>Setup</a></li>
     <li><a href="#flow"><span class="nav-dot"></span>Pipeline Flow</a></li>
 
     <li class="section-title">Modules</li>
@@ -480,6 +481,27 @@
 ├── output/                          # Output: Markdown + eval pages/chunks
 └── scores/                          # Per-book score JSON files</code></pre>
   </div>
+
+  <!-- Setup -->
+  <h2 id="setup">Setup (Google Colab)</h2>
+  <div class="code-block">
+    <div class="code-label">python — Colab cell</div>
+    <pre><code># Conversion only
+!bash setup.sh
+
+# Conversion + evaluation (also clones Page2MDBench)
+!bash setup.sh --with-eval</code></pre>
+  </div>
+  <p>
+    <code>setup.sh</code> installs <code>poppler-utils</code> (required by pdf2image) and all
+    Python dependencies from <code>requirements.txt</code>. The <code>--with-eval</code> flag
+    additionally clones <a href="https://github.com/Hipsterfil998/Page2MDBench">Page2MDBench</a>
+    and installs the evaluation libraries (<code>rapidfuzz</code>, <code>sacrebleu</code>,
+    <code>mistune</code>, <code>bert-score</code>). The clone step is idempotent: if the
+    directory already exists it is skipped.
+  </p>
+
+  <hr>
 
   <!-- Pipeline Flow -->
   <h2 id="flow">Pipeline Flow</h2>
@@ -798,12 +820,8 @@ genre_outputs  = [o.outputs[0].text for o in self.llm.chat(genre_dataset, sp)]</
   </div>
 
   <h3>Setup</h3>
-  <p>Clone Page2MDBench into the project root before using the evaluator:</p>
-  <div class="code-block">
-    <div class="code-label">bash</div>
-    <pre><code>git clone https://github.com/Hipsterfil998/Page2MDBench.git
-pip install rapidfuzz sacrebleu mistune bert-score</code></pre>
-  </div>
+  <p>Run <code>bash setup.sh --with-eval</code> (see <a href="#setup">Setup</a> section) — this
+  clones Page2MDBench and installs all evaluation dependencies in one step.</p>
   <p>
     The evaluator imports metrics directly if <code>Page2MDBench</code> is on the Python path,
     or falls back to inserting the cloned directory into <code>sys.path</code> automatically.
