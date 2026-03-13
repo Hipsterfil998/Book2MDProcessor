@@ -42,9 +42,6 @@ def _import_metrics():
         )
 
 
-NED, BLEU, MarkdownStructureF1, BERTScore = _import_metrics()
-
-
 class QualityEvaluator(PipelineStep):
     """Evaluates PDF/EPUB to Markdown quality using reference-based metrics.
 
@@ -55,6 +52,7 @@ class QualityEvaluator(PipelineStep):
     """
 
     def __init__(self, use_bertscore: bool = False):
+        NED, BLEU, MarkdownStructureF1, BERTScore = _import_metrics()
         self.ned = NED()
         self.bleu = BLEU()
         self.structure_f1 = MarkdownStructureF1()
