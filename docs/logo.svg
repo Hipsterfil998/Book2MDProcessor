@@ -55,7 +55,7 @@
     <polygon points="44,0 60,16 44,16" fill="#155f52"/>
     <polygon points="44,0 60,16 44,0"  fill="#1a8a78" opacity="0.5"/>
     <!-- # heading -->
-    <text x="6" y="34" font-family="monospace" font-size="17" font-weight="bold" fill="white" opacity="0.95"># Md</text>
+    <text x="6" y="34" font-family="monospace" font-size="17" font-weight="bold" fill="white" opacity="0.95"># MD</text>
     <!-- text lines -->
     <rect x="6" y="40" width="38" height="2.5" rx="1" fill="white" opacity="0.6"/>
     <rect x="6" y="46" width="30" height="2.5" rx="1" fill="white" opacity="0.5"/>
@@ -67,5 +67,5 @@
   <!-- Project name -->
   <text x="212" y="46" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#1e2d5a" letter-spacing="-0.5">Book<tspan fill="#2ab8a0">2MD</tspan></text>
   <text x="212" y="70" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="700" fill="#1e2d5a" letter-spacing="-0.5">Converter</text>
-  <text x="213" y="84" font-family="'Segoe UI', Arial, sans-serif" font-size="9" fill="#888" letter-spacing="1.5">PDF · EPUB → MARKDOWN</text>
+
 </svg>
